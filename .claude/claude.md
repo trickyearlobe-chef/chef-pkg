@@ -12,3 +12,4 @@
 * Never commit until tests are passing and the user has approved.
 * Never merge until the user approves
 * Never push until the user approves
+* Clean up branches after they are merged

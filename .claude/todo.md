@@ -27,14 +27,14 @@
 - [x] Write httptest-based tests for FetchProducts and FetchVersions
 
 ## pkg/downloader — Download Orchestration
-- [ ] Define Downloader struct with concurrency, dest dir, skip-existing config
-- [ ] Define DownloadResult type (path, success, error, skipped)
-- [ ] Implement hierarchical directory creation ({dest}/{product}/{version}/{platform}/{platform_version}/{arch}/)
-- [ ] Implement SHA256 verification and .sha256 sidecar file writing
-- [ ] Implement skip-existing logic (compare SHA256 sidecar)
-- [ ] Implement concurrent download with configurable parallelism
-- [ ] Implement Download(ctx, []FlatPackage) → []DownloadResult
-- [ ] Write tests for download logic (httptest, temp dirs, SHA256 checks)
+- [x] Define Downloader struct with concurrency, dest dir, skip-existing config
+- [x] Define DownloadResult type (path, success, error, skipped)
+- [x] Implement hierarchical directory creation ({dest}/{product}/{version}/{platform}/{platform_version}/{arch}/)
+- [x] Implement SHA256 verification and .sha256 sidecar file writing
+- [x] Implement skip-existing logic (compare SHA256 sidecar)
+- [x] Implement concurrent download with configurable parallelism
+- [x] Implement Download(ctx, []FlatPackage) → []DownloadResult
+- [x] Write tests for download logic (httptest, temp dirs, SHA256 checks)
 
 ## pkg/nexus — Nexus REST Client
 - [ ] Define Client struct with URL, username, password

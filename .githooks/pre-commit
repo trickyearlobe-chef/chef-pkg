@@ -8,10 +8,10 @@ set -euo pipefail
 IGNORE_FILE=".secret-scan-ignore"
 
 PATTERNS=(
-  (?i)(password|passwd|secret|token|api.?key)\s*[:=]\s*["'][^\s"']{8,}
-  (?i)license.?id\s*[:=]\s*["'][0-9a-f-]{36}
-  AKIA[0-9A-Z]{16}
-  -----BEGIN (RSA |EC |DSA )?PRIVATE KEY-----
+  '(?i)(password|passwd|secret|token|api.?key)\s*[:=]\s*["'\''][^\s"'\'' ]{8,}'
+  '(?i)license.?id\s*[:=]\s*["'\''][0-9a-f-]{36}'
+  'AKIA[0-9A-Z]{16}'
+  '-----BEGIN (RSA |EC |DSA )?PRIVATE KEY-----'
 )
 
 FILES=$(git diff --cached --name-only --diff-filter=ACMR)

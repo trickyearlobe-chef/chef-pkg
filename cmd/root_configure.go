@@ -207,15 +207,9 @@ func configSource(key string) string {
 }
 
 // maskSecret masks a secret value for display.
-// Values >= 10 chars show first 4 + **** + last 4.
-// Shorter non-empty values show ****.
-// Empty values are returned as-is.
 func maskSecret(val string) string {
 	if val == "" {
 		return ""
-	}
-	if len(val) >= 10 {
-		return val[:4] + "****" + val[len(val)-4:]
 	}
 	return "****"
 }

@@ -6,6 +6,7 @@ import (
 	"encoding/hex"
 	"fmt"
 	"io"
+	"mime"
 	"net/http"
 	"net/url"
 	"os"
@@ -23,6 +24,11 @@ type DownloadResult struct {
 	Skipped bool                // True if skipped due to existing file
 	Err     error               // Non-nil if download failed
 }
+
+// ProgressFunc is called after each individual download completes.
+// It receives the 0-based index, total count, and the result.
+// Implementations must be safe for concurrent use.
+type ProgressFunc func(index int, total int, result DownloadResult)
 
 // Option is a functional option for configuring a Downloader.
 type Option func(*Downloader)
@@ -50,6 +56,13 @@ func WithHTTPClient(hc *http.Client) Option {
 	}
 }
 
+// WithProgressFunc sets a callback that is invoked after each download completes.
+func WithProgressFunc(fn ProgressFunc) Option {
+	return func(d *Downloader) {
+		d.progressFunc = fn
+	}
+}
+
 // Downloader orchestrates downloading Chef packages to a local directory.
 type Downloader struct {
 	dest         string
@@ -57,6 +70,7 @@ type Downloader struct {
 	concurrency  int
 	skipExisting bool
 	httpClient   *http.Client
+	progressFunc ProgressFunc
 }
 
 // New creates a new Downloader.
@@ -82,6 +96,7 @@ func (d *Downloader) Download(ctx context.Context, packages []chefapi.FlatPackag
 	sem := make(chan struct{}, d.concurrency)
 	var wg sync.WaitGroup
 
+	total := len(packages)
 	for i, pkg := range packages {
 		wg.Add(1)
 		go func(idx int, p chefapi.FlatPackage) {
@@ -89,6 +104,9 @@ func (d *Downloader) Download(ctx context.Context, packages []chefapi.FlatPackag
 			sem <- struct{}{}
 			defer func() { <-sem }()
 			results[idx] = d.downloadOne(ctx, p)
+			if d.progressFunc != nil {
+				d.progressFunc(idx, total, results[idx])
+			}
 		}(i, pkg)
 	}
 
@@ -146,8 +164,11 @@ func (d *Downloader) downloadOne(ctx context.Context, pkg chefapi.FlatPackage) D
 		return result
 	}
 
-	// Determine filename from the final URL (after redirects)
-	filename := filenameFromURL(resp.Request.URL.String())
+	// Determine filename: prefer Content-Disposition header, fall back to URL path
+	filename := filenameFromContentDisposition(resp.Header.Get("Content-Disposition"))
+	if filename == "" {
+		filename = filenameFromURL(resp.Request.URL.String())
+	}
 	result.Path = filepath.Join(dir, filename)
 	shaPath := result.Path + ".sha256"
 
@@ -198,6 +219,25 @@ func (d *Downloader) downloadOne(ctx context.Context, pkg chefapi.FlatPackage) D
 	return result
 }
 
+// filenameFromContentDisposition extracts a filename from a Content-Disposition
+// header value (e.g. `attachment; filename="chef-ice-19.2.12-1.amzn2.x86_64.rpm"`).
+// Returns an empty string if the header is missing, empty, or has no filename parameter.
+func filenameFromContentDisposition(header string) string {
+	if header == "" {
+		return ""
+	}
+	_, params, err := mime.ParseMediaType(header)
+	if err != nil {
+		return ""
+	}
+	name := params["filename"]
+	if name == "" || name == "." || name == "/" {
+		return ""
+	}
+	// Sanitise: take only the base name to avoid directory traversal
+	return filepath.Base(name)
+}
+
 // filenameFromURL extracts a filename from a download URL.
 // If the URL has a path component, the last segment is used.
 // Otherwise, falls back to the full URL path.
@@ -229,7 +269,29 @@ func filenameFromURL(rawURL string) string {
 		return "download"
 	}
 	base := filepath.Base(path)
-	if base == "." || base == "/" {
+	if base == "." || base == "/" || !strings.Contains(base, ".") {
+		// No file extension — likely a generic endpoint name like "download".
+		// Try to build a meaningful name from query params instead.
+		q := u.Query()
+		parts := []string{}
+		if p := q.Get("p"); p != "" {
+			parts = append(parts, p)
+		}
+		if v := q.Get("v"); v != "" {
+			parts = append(parts, v)
+		}
+		if m := q.Get("m"); m != "" {
+			parts = append(parts, m)
+		}
+		if pm := q.Get("pm"); pm != "" {
+			parts = append(parts, pm)
+		}
+		if len(parts) > 0 {
+			return strings.Join(parts, "-")
+		}
+		if base != "." && base != "/" {
+			return base
+		}
 		return "download"
 	}
 	return base

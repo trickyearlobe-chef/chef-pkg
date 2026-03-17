@@ -101,8 +101,30 @@ var aptPlatforms = map[string]bool{
 	"debian": true,
 }
 
+// packageFormatRepoType maps package format strings (as found in the
+// Architecture field for products like chef-ice) to artifact repository types.
+var packageFormatRepoType = map[string]string{
+	"deb": "apt",
+	"rpm": "yum",
+	"msi": "raw",
+	"tar": "raw",
+}
+
+// IsPackageFormat returns true if the given string is a known package format
+// rather than a CPU architecture. Products like chef-ice use the Architecture
+// field to hold the package format (deb, rpm, tar, msi) instead of the CPU
+// architecture (x86_64, aarch64, etc.).
+func IsPackageFormat(arch string) bool {
+	_, ok := packageFormatRepoType[arch]
+	return ok
+}
+
 // RepoType returns the artifact repository type for a given Chef API platform.
 // Returns "yum" for RPM-based, "apt" for DEB-based, and "raw" for everything else.
+//
+// For standard products (chef, inspec, etc.) the platform alone determines the
+// repo type. For products like chef-ice where the Architecture field holds the
+// package format, call RepoTypeFromPackageFormat instead.
 func RepoType(platform string) string {
 	if yumPlatforms[platform] {
 		return "yum"
@@ -113,13 +135,41 @@ func RepoType(platform string) string {
 	return "raw"
 }
 
+// RepoTypeForPackage returns the artifact repository type by examining both
+// the platform and architecture fields of a package. If the architecture
+// field contains a package format (deb, rpm, tar, msi) — as used by products
+// like chef-ice — the repo type is derived from that format. Otherwise, the
+// repo type is derived from the platform in the standard way.
+func RepoTypeForPackage(platform, arch string) string {
+	if rt, ok := packageFormatRepoType[arch]; ok {
+		return rt
+	}
+	return RepoType(platform)
+}
+
 // RepoName builds the artifact repository name from its components.
-// Pattern: {prefix}-{normalizedPlatform}{normalizedVersion}-{normalizedArch}-{repoType}
+// Pattern: {prefix}-{normalizedPlatform}-{normalizedVersion}-{normalizedArch}-{repoType}
+//
+// For standard products the platform version is a distro version (e.g. "9",
+// "22.04") and the architecture is a CPU arch (e.g. "x86_64"). For products
+// like chef-ice the platform version holds the CPU architecture and the
+// architecture field holds the package format — RepoName handles both cases
+// correctly by detecting package-format architectures.
 //
 // Platform and version normalization are applied automatically.
 // Architecture is normalized based on the repo type.
 func RepoName(prefix, platform, platformVersion, arch, repoType string) string {
 	normPlatform := NormalizePlatform(platform)
+
+	// When the Architecture field is a package format (chef-ice style), the
+	// PlatformVersion actually contains the CPU architecture and there is no
+	// meaningful distro version. Build the name as:
+	//   {prefix}-{platform}-{platformVersion}-{repoType}
+	// where platformVersion is really the CPU arch (e.g. x86_64).
+	if IsPackageFormat(arch) {
+		return fmt.Sprintf("%s-%s-%s-%s", prefix, normPlatform, platformVersion, repoType)
+	}
+
 	normVersion := NormalizePlatformVersion(platform, platformVersion)
 	normArch := NormalizeArch(repoType, arch)
 

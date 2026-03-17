@@ -253,6 +253,99 @@ func TestDownload_FilenameFromURL(t *testing.T) {
 	}
 }
 
+func TestFilenameFromContentDisposition(t *testing.T) {
+	tests := []struct {
+		header string
+		want   string
+	}{
+		// Standard attachment with quoted filename
+		{`attachment; filename="chef-ice-19.2.12-1.amzn2.x86_64.rpm"`, "chef-ice-19.2.12-1.amzn2.x86_64.rpm"},
+		// Unquoted filename
+		{`attachment; filename=chef-ice-19.2.12-1.amzn2.x86_64.rpm`, "chef-ice-19.2.12-1.amzn2.x86_64.rpm"},
+		// With filename* (RFC 5987) — mime.ParseMediaType decodes this into "filename"
+		{`attachment; filename="chef-18.10.17-1.el10.x86_64.rpm"; filename*=UTF-8''chef-18.10.17-1.el10.x86_64.rpm`, "chef-18.10.17-1.el10.x86_64.rpm"},
+		// Inline disposition
+		{`inline; filename="report.pdf"`, "report.pdf"},
+		// Empty header
+		{"", ""},
+		// No filename parameter
+		{"attachment", ""},
+		// Filename is just a dot
+		{`attachment; filename="."`, ""},
+		// Filename is just a slash
+		{`attachment; filename="/"`, ""},
+		// Directory traversal attempt — sanitised to base name
+		{`attachment; filename="../../../etc/passwd"`, "passwd"},
+		// Filename with path component — sanitised to base name
+		{`attachment; filename="path/to/file.deb"`, "file.deb"},
+	}
+	for _, tt := range tests {
+		got := filenameFromContentDisposition(tt.header)
+		if got != tt.want {
+			t.Errorf("filenameFromContentDisposition(%q) = %q, want %q", tt.header, got, tt.want)
+		}
+	}
+}
+
+func TestDownload_ContentDispositionPreferred(t *testing.T) {
+	// Simulate a server that returns the file directly (no redirect) with a
+	// Content-Disposition header — like the chef-ice download endpoint.
+	// The URL path ends in "/download" (a bad filename) but the header
+	// provides the real name.
+	body := "fake chef-ice package"
+	checksum := sha256sum(body)
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Disposition", `attachment; filename="chef-ice-19.2.12-1.amzn2.x86_64.rpm"`)
+		w.Write([]byte(body))
+	}))
+	defer server.Close()
+
+	dest := t.TempDir()
+	d := New(dest, "chef-ice", WithConcurrency(1))
+
+	// URL path is /current/chef-ice/download — filepath.Base would give "download"
+	pkg := testPackage(server.URL+"/current/chef-ice/download?p=linux&m=x86_64&pm=rpm&v=19.2.12",
+		checksum, "19.2.12", "linux", "x86_64", "rpm")
+	results, err := d.Download(context.Background(), []chefapi.FlatPackage{pkg})
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if results[0].Err != nil {
+		t.Fatalf("unexpected download error: %v", results[0].Err)
+	}
+
+	basename := filepath.Base(results[0].Path)
+	if basename != "chef-ice-19.2.12-1.amzn2.x86_64.rpm" {
+		t.Errorf("expected filename from Content-Disposition header, got %q", basename)
+	}
+}
+
+func TestDownload_FallsBackToURLWhenNoContentDisposition(t *testing.T) {
+	// Server returns no Content-Disposition header — filename should come from URL path
+	body := "fake package"
+	checksum := sha256sum(body)
+	server := testServer(t, body)
+	defer server.Close()
+
+	dest := t.TempDir()
+	d := New(dest, "chef", WithConcurrency(1))
+
+	pkg := testPackage(server.URL+"/files/chef-18.4.12-1.el9.x86_64.rpm",
+		checksum, "18.4.12", "el", "9", "x86_64")
+	results, err := d.Download(context.Background(), []chefapi.FlatPackage{pkg})
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if results[0].Err != nil {
+		t.Fatalf("unexpected download error: %v", results[0].Err)
+	}
+
+	basename := filepath.Base(results[0].Path)
+	if basename != "chef-18.4.12-1.el9.x86_64.rpm" {
+		t.Errorf("expected filename from URL path, got %q", basename)
+	}
+}
+
 // Suppress unused import warnings
 var _ = fmt.Sprintf
 var _ = json.Marshal

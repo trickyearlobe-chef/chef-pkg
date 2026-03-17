@@ -81,14 +81,63 @@ func TestCreateRepo_Apt(t *testing.T) {
 		if r.URL.Path != "/service/rest/v1/repositories/apt/hosted" {
 			t.Errorf("unexpected path: %s", r.URL.Path)
 		}
+		body, _ := io.ReadAll(r.Body)
+		var payload map[string]interface{}
+		json.Unmarshal(body, &payload)
+		signing, ok := payload["aptSigning"].(map[string]interface{})
+		if !ok {
+			t.Fatal("expected aptSigning in payload")
+		}
+		if signing["keypair"] != "chef-pkg-signing" {
+			t.Errorf("unexpected keypair: %v", signing["keypair"])
+		}
 		w.WriteHeader(http.StatusCreated)
 	}))
 	defer server.Close()
 
 	client := NewClient(server.URL, "admin", "password")
-	err := client.CreateRepo(context.Background(), "chef-ubuntu-jammy-amd64-apt", "apt")
+	err := client.CreateRepo(context.Background(), "chef-ubuntu-jammy-amd64-apt", "apt",
+		WithGPGKeypair("chef-pkg-signing"))
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
+	}
+}
+
+func TestCreateRepo_Apt_WithPassphrase(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		body, _ := io.ReadAll(r.Body)
+		var payload map[string]interface{}
+		json.Unmarshal(body, &payload)
+		signing, ok := payload["aptSigning"].(map[string]interface{})
+		if !ok {
+			t.Fatal("expected aptSigning in payload")
+		}
+		if signing["keypair"] != "my-key" {
+			t.Errorf("unexpected keypair: %v", signing["keypair"])
+		}
+		if signing["passphrase"] != "s3cret" {
+			t.Errorf("unexpected passphrase: %v", signing["passphrase"])
+		}
+		w.WriteHeader(http.StatusCreated)
+	}))
+	defer server.Close()
+
+	client := NewClient(server.URL, "admin", "password")
+	err := client.CreateRepo(context.Background(), "chef-ubuntu-jammy-amd64-apt", "apt",
+		WithGPGKeypair("my-key"), WithGPGPassphrase("s3cret"))
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+}
+
+func TestCreateRepo_Apt_MissingKeypair(t *testing.T) {
+	client := NewClient("http://localhost", "admin", "password")
+	err := client.CreateRepo(context.Background(), "chef-ubuntu-jammy-amd64-apt", "apt")
+	if err == nil {
+		t.Fatal("expected error for APT repo without GPG keypair")
+	}
+	if !strings.Contains(err.Error(), "GPG keypair") {
+		t.Errorf("expected GPG keypair error, got: %v", err)
 	}
 }
 

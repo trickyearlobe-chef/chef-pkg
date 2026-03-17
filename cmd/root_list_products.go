@@ -11,24 +11,24 @@ import (
 	"github.com/trickyearlobe-chef/chef-pkg/pkg/chefapi"
 )
 
-var productsCmd = &cobra.Command{
+var listProductsCmd = &cobra.Command{
 	Use:   "products",
 	Short: "List available Chef products",
 	Long:  `List all available products from the Progress Chef commercial downloads API.`,
 	Example: `  # List all products
-  chef-pkg products
+  chef-pkg list products
 
   # Output as JSON
-  chef-pkg products --output json`,
-	RunE: runProducts,
+  chef-pkg list products --output json`,
+	RunE: runListProducts,
 }
 
 func init() {
-	rootCmd.AddCommand(productsCmd)
-	productsCmd.Flags().StringP("output", "o", "table", "Output format: table or json")
+	listCmd.AddCommand(listProductsCmd)
+	listProductsCmd.Flags().StringP("output", "o", "table", "Output format: table or json")
 }
 
-func runProducts(cmd *cobra.Command, args []string) error {
+func runListProducts(cmd *cobra.Command, args []string) error {
 	licenseID := viper.GetString("chef.license_id")
 	if licenseID == "" {
 		return fmt.Errorf("license ID is required: set --license-id, config chef.license_id, or CHEFPKG_CHEF_LICENSE_ID env var")

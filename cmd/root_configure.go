@@ -29,6 +29,8 @@ var configEntries = []configEntry{
 	{"nexus-url", "nexus.url"},
 	{"nexus-username", "nexus.username"},
 	{"nexus-password", "nexus.password"},
+	{"nexus-gpg-keypair", "nexus.gpg_keypair"},
+	{"nexus-gpg-passphrase", "nexus.gpg_passphrase"},
 	{"artifactory-url", "artifactory.url"},
 	{"artifactory-token", "artifactory.token"},
 	{"artifactory-username", "artifactory.username"},
@@ -36,7 +38,7 @@ var configEntries = []configEntry{
 }
 
 // secretSuffixes are key suffixes that indicate a secret value.
-var secretSuffixes = []string{"license_id", "password", "token"}
+var secretSuffixes = []string{"license_id", "password", "token", "passphrase"}
 
 var showConfig bool
 
@@ -70,6 +72,8 @@ func init() {
 	configureCmd.Flags().String("nexus-url", "", "Nexus server URL")
 	configureCmd.Flags().String("nexus-username", "", "Nexus username")
 	configureCmd.Flags().String("nexus-password", "", "Nexus password")
+	configureCmd.Flags().String("nexus-gpg-keypair", "", "GPG keypair name in Nexus for APT repo signing")
+	configureCmd.Flags().String("nexus-gpg-passphrase", "", "Passphrase for the GPG keypair")
 	configureCmd.Flags().String("artifactory-url", "", "Artifactory server URL")
 	configureCmd.Flags().String("artifactory-token", "", "Artifactory API token")
 	configureCmd.Flags().String("artifactory-username", "", "Artifactory username")

@@ -61,59 +61,93 @@ func (c *Client) RepoExists(ctx context.Context, name string) (bool, error) {
 	}
 }
 
+// CreateRepoOption is a functional option for configuring repository creation.
+type CreateRepoOption func(*createRepoConfig)
+
+// createRepoConfig holds optional configuration for CreateRepo.
+type createRepoConfig struct {
+	gpgKeypair    string
+	gpgPassphrase string
+}
+
+// WithGPGKeypair sets the GPG keypair name for APT repository signing.
+// This is required by Nexus when creating APT hosted repositories.
+// The keypair must already be stored in Nexus (via the GPG keys admin UI).
+func WithGPGKeypair(keypair string) CreateRepoOption {
+	return func(cfg *createRepoConfig) {
+		cfg.gpgKeypair = keypair
+	}
+}
+
+// WithGPGPassphrase sets the passphrase for the GPG keypair used for
+// APT repository signing. If the keypair has no passphrase, this can
+// be omitted.
+func WithGPGPassphrase(passphrase string) CreateRepoOption {
+	return func(cfg *createRepoConfig) {
+		cfg.gpgPassphrase = passphrase
+	}
+}
+
 // repoPayload builds the JSON payload for creating a hosted repository.
-func repoPayload(name, repoType string) ([]byte, error) {
+func repoPayload(name, repoType string, cfg *createRepoConfig) ([]byte, error) {
 	var payload map[string]interface{}
 
 	switch repoType {
 	case "yum":
 		payload = map[string]interface{}{
-			"name": name,
+			"name":   name,
 			"online": true,
 			"storage": map[string]interface{}{
-				"blobStoreName": "default",
+				"blobStoreName":               "default",
 				"strictContentTypeValidation": true,
-				"writePolicy": "ALLOW",
+				"writePolicy":                 "ALLOW",
 			},
 			"yum": map[string]interface{}{
 				"repodataDepth": 0,
-				"deployPolicy": "STRICT",
+				"deployPolicy":  "STRICT",
 			},
 		}
 	case "apt":
+		if cfg.gpgKeypair == "" {
+			return nil, fmt.Errorf("nexus: APT repositories require a GPG keypair for signing; set --nexus-gpg-keypair, config nexus.gpg_keypair, or CHEFPKG_NEXUS_GPG_KEYPAIR")
+		}
+		aptSigning := map[string]interface{}{
+			"keypair": cfg.gpgKeypair,
+		}
+		if cfg.gpgPassphrase != "" {
+			aptSigning["passphrase"] = cfg.gpgPassphrase
+		}
 		payload = map[string]interface{}{
-			"name": name,
+			"name":   name,
 			"online": true,
 			"storage": map[string]interface{}{
-				"blobStoreName": "default",
+				"blobStoreName":               "default",
 				"strictContentTypeValidation": true,
-				"writePolicy": "ALLOW",
+				"writePolicy":                 "ALLOW",
 			},
 			"apt": map[string]interface{}{
 				"distribution": "stable",
 			},
-			"aptSigning": map[string]interface{}{
-				"keypair": "",
-			},
+			"aptSigning": aptSigning,
 		}
 	case "nuget":
 		payload = map[string]interface{}{
-			"name": name,
+			"name":   name,
 			"online": true,
 			"storage": map[string]interface{}{
-				"blobStoreName": "default",
+				"blobStoreName":               "default",
 				"strictContentTypeValidation": true,
-				"writePolicy": "ALLOW",
+				"writePolicy":                 "ALLOW",
 			},
 		}
 	case "raw":
 		payload = map[string]interface{}{
-			"name": name,
+			"name":   name,
 			"online": true,
 			"storage": map[string]interface{}{
-				"blobStoreName": "default",
+				"blobStoreName":               "default",
 				"strictContentTypeValidation": false,
-				"writePolicy": "ALLOW",
+				"writePolicy":                 "ALLOW",
 			},
 		}
 	default:
@@ -124,8 +158,14 @@ func repoPayload(name, repoType string) ([]byte, error) {
 }
 
 // CreateRepo creates a hosted repository in Nexus.
-func (c *Client) CreateRepo(ctx context.Context, name, repoType string) error {
-	payloadBytes, err := repoPayload(name, repoType)
+// For APT repositories, use WithGPGKeypair to provide the required signing key.
+func (c *Client) CreateRepo(ctx context.Context, name, repoType string, opts ...CreateRepoOption) error {
+	cfg := &createRepoConfig{}
+	for _, opt := range opts {
+		opt(cfg)
+	}
+
+	payloadBytes, err := repoPayload(name, repoType, cfg)
 	if err != nil {
 		return err
 	}

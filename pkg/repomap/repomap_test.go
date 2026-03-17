@@ -137,6 +137,67 @@ func TestRepoType(t *testing.T) {
 	}
 }
 
+func TestIsPackageFormat(t *testing.T) {
+	tests := []struct {
+		arch string
+		want bool
+	}{
+		// Known package formats
+		{"deb", true},
+		{"rpm", true},
+		{"msi", true},
+		{"tar", true},
+		// CPU architectures are not package formats
+		{"x86_64", false},
+		{"aarch64", false},
+		{"ppc64le", false},
+		{"s390x", false},
+		{"sparc", false},
+		{"powerpc", false},
+		{"i386", false},
+		// Unknown strings are not package formats
+		{"unknown", false},
+		{"", false},
+	}
+	for _, tt := range tests {
+		got := IsPackageFormat(tt.arch)
+		if got != tt.want {
+			t.Errorf("IsPackageFormat(%q) = %v, want %v", tt.arch, got, tt.want)
+		}
+	}
+}
+
+func TestRepoTypeForPackage(t *testing.T) {
+	tests := []struct {
+		platform string
+		arch     string
+		want     string
+	}{
+		// Standard products: repo type from platform, arch is CPU arch
+		{"el", "x86_64", "yum"},
+		{"amazon", "aarch64", "yum"},
+		{"ubuntu", "x86_64", "apt"},
+		{"debian", "aarch64", "apt"},
+		{"windows", "x86_64", "raw"},
+		{"mac_os_x", "x86_64", "raw"},
+		// chef-ice style: arch is package format, platform is generic
+		{"linux", "rpm", "yum"},
+		{"linux", "deb", "apt"},
+		{"linux", "tar", "raw"},
+		{"windows", "msi", "raw"},
+		{"windows", "tar", "raw"},
+		// Package format takes precedence over platform
+		{"el", "deb", "apt"},
+		{"ubuntu", "rpm", "yum"},
+	}
+	for _, tt := range tests {
+		got := RepoTypeForPackage(tt.platform, tt.arch)
+		if got != tt.want {
+			t.Errorf("RepoTypeForPackage(%q, %q) = %q, want %q", tt.platform, tt.arch, got, tt.want)
+		}
+	}
+}
+
 func TestRepoName(t *testing.T) {
 	tests := []struct {
 		prefix          string
@@ -162,6 +223,14 @@ func TestRepoName(t *testing.T) {
 		{"chef", "freebsd", "12", "x86_64", "raw", "chef-freebsd12-x86_64-raw"},
 		// Custom prefix
 		{"myorg", "el", "9", "x86_64", "yum", "myorg-el9-x86_64-yum"},
+		// chef-ice style: arch is package format, platformVersion is CPU arch
+		{"chef-ice", "linux", "x86_64", "rpm", "yum", "chef-ice-linux-x86_64-yum"},
+		{"chef-ice", "linux", "x86_64", "deb", "apt", "chef-ice-linux-x86_64-apt"},
+		{"chef-ice", "linux", "x86_64", "tar", "raw", "chef-ice-linux-x86_64-raw"},
+		{"chef-ice", "linux", "aarch64", "rpm", "yum", "chef-ice-linux-aarch64-yum"},
+		{"chef-ice", "linux", "aarch64", "deb", "apt", "chef-ice-linux-aarch64-apt"},
+		{"chef-ice", "windows", "x86_64", "msi", "raw", "chef-ice-windows-x86_64-raw"},
+		{"chef-ice", "windows", "x86_64", "tar", "raw", "chef-ice-windows-x86_64-raw"},
 	}
 	for _, tt := range tests {
 		got := RepoName(tt.prefix, tt.platform, tt.platformVersion, tt.arch, tt.repoType)

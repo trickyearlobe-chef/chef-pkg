@@ -13,3 +13,8 @@
 * Never merge until the user approves
 * Never push until the user approves
 * Clean up branches after they are merged
+
+## Security and compliance
+* Our license model is Apache2
+* Check libraries to ensure they are not flagged as malware or licensed in a way incompatible with Apache2
+* Never commit passwords or secrets

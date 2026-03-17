@@ -11,31 +11,31 @@ import (
 	"github.com/trickyearlobe-chef/chef-pkg/pkg/chefapi"
 )
 
-var versionsCmd = &cobra.Command{
+var listVersionsCmd = &cobra.Command{
 	Use:   "versions",
 	Short: "List available versions for a Chef product",
 	Long:  `List available versions for a given Chef product and channel from the Progress Chef commercial downloads API.`,
 	Example: `  # List versions for chef (default product)
-  chef-pkg versions
+  chef-pkg list versions
 
   # List versions for a specific product
-  chef-pkg versions --product chef-ice
+  chef-pkg list versions --product chef-ice
 
   # List versions on the stable channel
-  chef-pkg versions --product chef --channel stable
+  chef-pkg list versions --product chef --channel stable
 
   # Output as JSON
-  chef-pkg versions --product chef --output json`,
-	RunE: runVersions,
+  chef-pkg list versions --product chef --output json`,
+	RunE: runListVersions,
 }
 
 func init() {
-	rootCmd.AddCommand(versionsCmd)
-	versionsCmd.Flags().StringP("product", "p", "chef", "Chef product name (e.g. chef, chef-ice, inspec)")
-	versionsCmd.Flags().StringP("output", "o", "table", "Output format: table or json")
+	listCmd.AddCommand(listVersionsCmd)
+	listVersionsCmd.Flags().StringP("product", "p", "chef", "Chef product name (e.g. chef, chef-ice, inspec)")
+	listVersionsCmd.Flags().StringP("output", "o", "table", "Output format: table or json")
 }
 
-func runVersions(cmd *cobra.Command, args []string) error {
+func runListVersions(cmd *cobra.Command, args []string) error {
 	licenseID := viper.GetString("chef.license_id")
 	if licenseID == "" {
 		return fmt.Errorf("license ID is required: set --license-id, config chef.license_id, or CHEFPKG_CHEF_LICENSE_ID env var")

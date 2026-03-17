@@ -6,13 +6,13 @@
 - [x] Create example config file ~/.chef-pkg.toml
 
 ## pkg/repomap — Platform/Arch/Repo Normalization
-- [ ] Implement NormalizePlatform(chefPlatform) → string
-- [ ] Implement NormalizePlatformVersion(platform, version) → string with Ubuntu/Debian codename lookup tables
-- [ ] Implement NormalizeArch(repoType, chefArch) → string
-- [ ] Implement RepoType(platform, fileExtension) → string
-- [ ] Implement RepoName(prefix, platform, platformVersion, arch, repoType) → string
-- [ ] Write tests for all normalization functions
-- [ ] Add fallback behavior with warnings for unknown platforms/versions
+- [x] Implement NormalizePlatform(chefPlatform) → string
+- [x] Implement NormalizePlatformVersion(platform, version) → string with Ubuntu/Debian codename lookup tables
+- [x] Implement NormalizeArch(repoType, chefArch) → string
+- [x] Implement RepoType(platform, fileExtension) → string
+- [x] Implement RepoName(prefix, platform, platformVersion, arch, repoType) → string
+- [x] Write tests for all normalization functions
+- [x] Add fallback behavior with warnings for unknown platforms/versions
 
 ## pkg/chefapi — Chef Downloads API Client
 - [x] Define types: PackageDetail, PackagesResponse (nested map), FlatPackage

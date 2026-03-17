@@ -183,3 +183,97 @@ func TestAPIError_Error(t *testing.T) {
 		t.Errorf("expected %q, got %q", expected, e.Error())
 	}
 }
+
+func TestFetchProducts_Success(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path != "/products" {
+			t.Errorf("unexpected path: %s", r.URL.Path)
+		}
+		if r.URL.Query().Get("license_id") != "test-license" {
+			t.Errorf("unexpected license_id: %s", r.URL.Query().Get("license_id"))
+		}
+		w.Header().Set("Content-Type", "application/json")
+		json.NewEncoder(w).Encode([]string{"chef", "chef-ice", "inspec"})
+	}))
+	defer server.Close()
+
+	client := NewClient("test-license", WithBaseURL(server.URL))
+	products, err := client.FetchProducts(context.Background())
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if len(products) != 3 {
+		t.Errorf("expected 3 products, got %d", len(products))
+	}
+	if products[0] != "chef" {
+		t.Errorf("expected first product to be chef, got %s", products[0])
+	}
+}
+
+func TestFetchProducts_APIError(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusForbidden)
+		w.Write([]byte("forbidden"))
+	}))
+	defer server.Close()
+
+	client := NewClient("bad-license", WithBaseURL(server.URL))
+	_, err := client.FetchProducts(context.Background())
+	if err == nil {
+		t.Fatal("expected error, got nil")
+	}
+	var apiErr *APIError
+	if !errors.As(err, &apiErr) {
+		t.Fatalf("expected APIError, got %T: %v", err, err)
+	}
+	if apiErr.StatusCode != 403 {
+		t.Errorf("expected status 403, got %d", apiErr.StatusCode)
+	}
+}
+
+func TestFetchVersions_Success(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path != "/stable/chef/versions/all" {
+			t.Errorf("unexpected path: %s", r.URL.Path)
+		}
+		if r.URL.Query().Get("license_id") != "test-license" {
+			t.Errorf("unexpected license_id: %s", r.URL.Query().Get("license_id"))
+		}
+		w.Header().Set("Content-Type", "application/json")
+		json.NewEncoder(w).Encode([]string{"18.4.12", "18.5.0", "19.1.158"})
+	}))
+	defer server.Close()
+
+	client := NewClient("test-license", WithBaseURL(server.URL))
+	versions, err := client.FetchVersions(context.Background(), "stable", "chef")
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if len(versions) != 3 {
+		t.Errorf("expected 3 versions, got %d", len(versions))
+	}
+	if versions[2] != "19.1.158" {
+		t.Errorf("expected last version to be 19.1.158, got %s", versions[2])
+	}
+}
+
+func TestFetchVersions_APIError(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusBadRequest)
+		w.Write([]byte("bad request"))
+	}))
+	defer server.Close()
+
+	client := NewClient("test-license", WithBaseURL(server.URL))
+	_, err := client.FetchVersions(context.Background(), "stable", "nonexistent")
+	if err == nil {
+		t.Fatal("expected error, got nil")
+	}
+	var apiErr *APIError
+	if !errors.As(err, &apiErr) {
+		t.Fatalf("expected APIError, got %T: %v", err, err)
+	}
+	if apiErr.StatusCode != 400 {
+		t.Errorf("expected status 400, got %d", apiErr.StatusCode)
+	}
+}

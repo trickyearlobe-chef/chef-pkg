@@ -9,7 +9,9 @@
 - **Base URL**: `https://commercial-acceptance.downloads.chef.co`
 - **Path pattern**: `/{channel}/{product}/packages`
 - **Query params**: `v` (version), `license_id` (required)
-- **Response format**: Nested JSON map — `platform → platform_version → architecture → PackageDetail`
+- **Response format (packages)**: Nested JSON map — `platform → platform_version → architecture → PackageDetail`
+- **Products endpoint**: `GET /products?license_id={id}` — returns `["automate", "chef", ...]`
+- **Versions endpoint**: `GET /{channel}/{product}/versions/all?license_id={id}` — returns `["18.4.12", ...]`
 
 ## Command Hierarchy & File Layout
 
@@ -17,6 +19,8 @@
 cmd/
   root.go                            → chef-pkg (global config via Viper)
   root_configure.go                  → chef-pkg configure (set/show config)
+  root_products.go                   → chef-pkg products (list available products)
+  root_versions.go                   → chef-pkg versions (list versions for a product)
   root_packages.go                   → chef-pkg packages (list available packages)
   root_download.go                   → chef-pkg download (fetch to local disk)
   root_upload.go                     → chef-pkg upload (parent — no action alone)
@@ -121,6 +125,27 @@ chef-pkg configure --show
 # Use a custom config file location
 chef-pkg --config /path/to/config.toml configure --license-id xxxx
 ```
+
+### `chef-pkg products`
+
+List all available products from the Chef downloads API.
+
+| Flag | Short | Default | Description |
+|---|---|---|---|
+| `--output` | `-o` | `table` | Output format: `table` or `json` |
+
+No additional flags beyond the inherited root flags. Calls `GET /products?license_id={id}`.
+
+### `chef-pkg versions`
+
+List available versions for a given product and channel.
+
+| Flag | Short | Default | Description |
+|---|---|---|---|
+| `--product` | `-p` | `chef` | Product name |
+| `--output` | `-o` | `table` | Output format: `table` or `json` |
+
+Calls `GET /{channel}/{product}/versions/all?license_id={id}`.
 
 ### `chef-pkg packages`
 
@@ -294,6 +319,8 @@ inspec/6.8.1/inspec-6.8.1-1.el9.x86_64.rpm
 - `Client` struct with functional options pattern
 - `ClientOption` type: `WithBaseURL(url)`, `WithHTTPClient(c)`
 - `NewClient(licenseID string, opts ...ClientOption) *Client`
+- `FetchProducts(ctx context.Context) ([]string, error)` — calls `/products`
+- `FetchVersions(ctx context.Context, channel, product string) ([]string, error)` — calls `/{channel}/{product}/versions/all`
 - `FetchPackages(ctx context.Context, channel, product, version string) (PackagesResponse, error)`
 - `PackagesResponse` = `map[string]map[string]map[string]PackageDetail`
 - `PackageDetail` struct: `SHA1`, `SHA256`, `URL`, `Version`

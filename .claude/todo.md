@@ -21,7 +21,10 @@
 - [x] Implement Client struct with functional options (WithBaseURL, WithHTTPClient)
 - [x] Implement NewClient(licenseID, ...ClientOption) constructor
 - [x] Implement FetchPackages(ctx, channel, product, version) → (PackagesResponse, error)
+- [x] Implement FetchProducts(ctx) → ([]string, error)
+- [x] Implement FetchVersions(ctx, channel, product) → ([]string, error)
 - [x] Write httptest-based tests: success, API error, invalid JSON
+- [x] Write httptest-based tests for FetchProducts and FetchVersions
 
 ## pkg/downloader — Download Orchestration
 - [ ] Define Downloader struct with concurrency, dest dir, skip-existing config
@@ -67,6 +70,16 @@
 - [x] Implement --show with secret masking (license_id, password, token fields)
 - [x] Implement mask function: show first 4 + last 4 chars with **** in between, or **** if < 10 chars
 - [x] Write tests for masking logic and config write/read round-trip
+
+## cmd/root_products.go — products Subcommand
+- [x] Add products subcommand with --output flag
+- [x] Implement RunE: create chefapi.Client, call FetchProducts, output as table or json
+- [x] Write tests for FetchProducts (httptest)
+
+## cmd/root_versions.go — versions Subcommand
+- [x] Add versions subcommand with --product and --output flags
+- [x] Implement RunE: create chefapi.Client, call FetchVersions, output as table or json
+- [x] Write tests for FetchVersions (httptest)
 
 ## cmd/root_packages.go — packages Subcommand
 - [x] Add packages subcommand with flags: --product, --version, --platform, --arch, --output

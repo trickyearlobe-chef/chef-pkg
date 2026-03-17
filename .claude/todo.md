@@ -1,9 +1,9 @@
 # TODO
 
 ## Project Setup
-- [ ] Initialize Go module and install dependencies (cobra, viper, progressbar, x/term)
-- [ ] Create project directory structure (cmd/, pkg/chefapi/, pkg/downloader/, pkg/nexus/, pkg/artifactory/, pkg/repomap/)
-- [ ] Create example config file ~/.chef-pkg.toml
+- [x] Initialize Go module and install dependencies (cobra, viper, progressbar, x/term)
+- [x] Create project directory structure (cmd/, pkg/chefapi/, pkg/downloader/, pkg/nexus/, pkg/artifactory/, pkg/repomap/)
+- [x] Create example config file ~/.chef-pkg.toml
 
 ## pkg/repomap — Platform/Arch/Repo Normalization
 - [ ] Implement NormalizePlatform(chefPlatform) → string

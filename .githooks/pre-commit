@@ -1,0 +1,41 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+# ---- Secret scanning pre-commit hook ----
+# Scans staged files for common secret patterns.
+# Add exceptions to .secret-scan-ignore (one regex per line).
+
+IGNORE_FILE=".secret-scan-ignore"
+
+PATTERNS=(
+  (?i)(password|passwd|secret|token|api.?key)\s*[:=]\s*["'][^\s"']{8,}
+  (?i)license.?id\s*[:=]\s*["'][0-9a-f-]{36}
+  AKIA[0-9A-Z]{16}
+  -----BEGIN (RSA |EC |DSA )?PRIVATE KEY-----
+)
+
+FILES=$(git diff --cached --name-only --diff-filter=ACMR)
+[ -z "$FILES" ] && exit 0
+
+GREP_OPTS=(-n --with-filename)
+if [ -f "$IGNORE_FILE" ]; then
+  while IFS= read -r line; do
+    [[ -z "$line" || "$line" == \#* ]] && continue
+    GREP_OPTS+=(--exclude="$line")
+  done < "$IGNORE_FILE"
+fi
+
+FOUND=0
+for pattern in "${PATTERNS[@]}"; do
+  if echo "$FILES" | xargs grep -P -H -n "$pattern" 2>/dev/null; then
+    FOUND=1
+  fi
+done
+
+if [ "$FOUND" -eq 1 ]; then
+  echo ""
+  echo "ERROR: Potential secrets detected in staged files."
+  echo "If these are false positives, add exclusion patterns to .secret-scan-ignore"
+  echo "or commit with --no-verify to bypass this check."
+  exit 1
+fi

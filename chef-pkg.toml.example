@@ -1,0 +1,26 @@
+# chef-pkg configuration file
+#
+# Copy this file to ~/.chef-pkg.toml and edit to suit your environment.
+# All values can also be set via environment variables prefixed with CHEFPKG_.
+# For example: CHEFPKG_CHEF_LICENSE_ID, CHEFPKG_NEXUS_URL, etc.
+
+[chef]
+license_id = "xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx"
+base_url = "https://commercial-acceptance.downloads.chef.co"
+channel = "current"
+
+[download]
+dest = "./packages"
+concurrency = 4
+
+[nexus]
+url = "https://nexus.example.com"
+username = "admin"
+password = "secret"
+
+[artifactory]
+url = "https://artifactory.example.com"
+# Token takes precedence over username/password if both are set.
+token = ""
+username = ""
+password = ""

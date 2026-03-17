@@ -1,0 +1,40 @@
+# Build artifacts
+/chef-pkg
+/bin/
+/dist/
+
+# Go
+*.exe
+*.exe~
+*.dll
+*.so
+*.dylib
+*.test
+*.out
+
+# Dependency directories
+/vendor/
+
+# IDE / Editor
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+.DS_Store
+
+# Config files (may contain secrets)
+chef-pkg.toml
+*.toml
+!chef-pkg.toml.example
+
+# Downloaded packages
+/packages/
+
+# Test coverage
+coverage.out
+coverage.html
+
+# Environment files
+.env
+.env.*

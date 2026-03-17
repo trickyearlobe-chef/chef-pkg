@@ -88,9 +88,9 @@
 - [x] Implement JSON output with indented encoding
 
 ## cmd/root_download.go — download Subcommand
-- [ ] Add download subcommand with flags: --product, --version, --platform, --arch, --dest, --skip-existing, --concurrency
-- [ ] Implement RunE: create chefapi.Client, fetch package list, filter, invoke Downloader
-- [ ] Display progress (interactive) or line-by-line logs (batch)
+- [x] Add download subcommand with flags: --product, --version, --platform, --arch, --dest, --skip-existing, --concurrency
+- [x] Implement RunE: create chefapi.Client, fetch package list, filter, invoke Downloader
+- [x] Display progress (interactive) or line-by-line logs (batch)
 
 ## cmd/root_upload.go — upload Parent Command
 - [ ] Add upload parent command (no action, just groups nexus/artifactory)

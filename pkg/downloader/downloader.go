@@ -102,16 +102,21 @@ func (d *Downloader) downloadOne(ctx context.Context, pkg chefapi.FlatPackage) D
 
 	// Build the target directory: {dest}/{product}/{version}/{platform}/{platform_version}/{arch}/
 	dir := filepath.Join(d.dest, d.product, pkg.Version, pkg.Platform, pkg.PlatformVersion, pkg.Architecture)
-	filename := filenameFromURL(pkg.URL)
-	result.Path = filepath.Join(dir, filename)
-	shaPath := result.Path + ".sha256"
 
-	// Skip if file exists and SHA256 matches
+	// Check skip-existing using a SHA256 marker file for the directory.
+	// We need the filename to check, but we may not know it until after
+	// the HTTP redirect. For skip-existing, check if any .sha256 file
+	// in the directory matches the expected checksum.
 	if d.skipExisting {
-		if existing, err := os.ReadFile(shaPath); err == nil {
-			if strings.TrimSpace(string(existing)) == pkg.SHA256 {
-				result.Skipped = true
-				return result
+		if matches, _ := filepath.Glob(filepath.Join(dir, "*.sha256")); len(matches) > 0 {
+			for _, m := range matches {
+				if existing, err := os.ReadFile(m); err == nil {
+					if strings.TrimSpace(string(existing)) == pkg.SHA256 {
+						result.Path = strings.TrimSuffix(m, ".sha256")
+						result.Skipped = true
+						return result
+					}
+				}
 			}
 		}
 	}
@@ -140,6 +145,11 @@ func (d *Downloader) downloadOne(ctx context.Context, pkg chefapi.FlatPackage) D
 		result.Err = fmt.Errorf("downloading %s: HTTP %d", pkg.URL, resp.StatusCode)
 		return result
 	}
+
+	// Determine filename from the final URL (after redirects)
+	filename := filenameFromURL(resp.Request.URL.String())
+	result.Path = filepath.Join(dir, filename)
+	shaPath := result.Path + ".sha256"
 
 	// Write to a temp file, compute SHA256 as we go
 	tmpFile, err := os.CreateTemp(dir, ".download-*")

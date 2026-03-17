@@ -1,0 +1,243 @@
+package artifactory
+
+import (
+	"context"
+	"encoding/json"
+	"io"
+	"net/http"
+	"net/http/httptest"
+	"os"
+	"path/filepath"
+	"strings"
+	"testing"
+)
+
+func TestRepoExists_True(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path != "/api/repositories/chef-el9-x86_64-yum" {
+			t.Errorf("unexpected path: %s", r.URL.Path)
+		}
+		w.WriteHeader(http.StatusOK)
+		w.Write([]byte("{}"))
+	}))
+	defer server.Close()
+
+	client := NewClient(server.URL, WithToken("test-token"))
+	exists, err := client.RepoExists(context.Background(), "chef-el9-x86_64-yum")
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if !exists {
+		t.Error("expected repo to exist")
+	}
+}
+
+func TestRepoExists_False(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusNotFound)
+	}))
+	defer server.Close()
+
+	client := NewClient(server.URL, WithToken("test-token"))
+	exists, err := client.RepoExists(context.Background(), "nonexistent")
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if exists {
+		t.Error("expected repo to not exist")
+	}
+}
+
+func TestCreateRepo_Yum(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.Method != http.MethodPut {
+			t.Errorf("unexpected method: %s", r.Method)
+		}
+		if r.URL.Path != "/api/repositories/chef-el9-x86_64-yum" {
+			t.Errorf("unexpected path: %s", r.URL.Path)
+		}
+		body, _ := io.ReadAll(r.Body)
+		var payload map[string]interface{}
+		json.Unmarshal(body, &payload)
+		if payload["rclass"] != "local" {
+			t.Errorf("expected rclass=local, got %v", payload["rclass"])
+		}
+		if payload["packageType"] != "yum" {
+			t.Errorf("expected packageType=yum, got %v", payload["packageType"])
+		}
+		w.WriteHeader(http.StatusOK)
+	}))
+	defer server.Close()
+
+	client := NewClient(server.URL, WithToken("test-token"))
+	err := client.CreateRepo(context.Background(), "chef-el9-x86_64-yum", "yum")
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+}
+
+func TestCreateRepo_Apt(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path != "/api/repositories/chef-ubuntu-jammy-amd64-apt" {
+			t.Errorf("unexpected path: %s", r.URL.Path)
+		}
+		body, _ := io.ReadAll(r.Body)
+		var payload map[string]interface{}
+		json.Unmarshal(body, &payload)
+		if payload["packageType"] != "debian" {
+			t.Errorf("expected packageType=debian, got %v", payload["packageType"])
+		}
+		w.WriteHeader(http.StatusOK)
+	}))
+	defer server.Close()
+
+	client := NewClient(server.URL, WithToken("test-token"))
+	err := client.CreateRepo(context.Background(), "chef-ubuntu-jammy-amd64-apt", "apt")
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+}
+
+func TestCreateRepo_Generic(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		body, _ := io.ReadAll(r.Body)
+		var payload map[string]interface{}
+		json.Unmarshal(body, &payload)
+		if payload["packageType"] != "generic" {
+			t.Errorf("expected packageType=generic, got %v", payload["packageType"])
+		}
+		w.WriteHeader(http.StatusOK)
+	}))
+	defer server.Close()
+
+	client := NewClient(server.URL, WithToken("test-token"))
+	err := client.CreateRepo(context.Background(), "chef-macos13-x86_64-raw", "raw")
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+}
+
+func TestCreateRepo_Nuget(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		body, _ := io.ReadAll(r.Body)
+		var payload map[string]interface{}
+		json.Unmarshal(body, &payload)
+		if payload["packageType"] != "nuget" {
+			t.Errorf("expected packageType=nuget, got %v", payload["packageType"])
+		}
+		w.WriteHeader(http.StatusOK)
+	}))
+	defer server.Close()
+
+	client := NewClient(server.URL, WithToken("test-token"))
+	err := client.CreateRepo(context.Background(), "chef-windows2019-x86_64-nuget", "nuget")
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+}
+
+func TestUpload_Success(t *testing.T) {
+	var receivedPath string
+	var receivedBody string
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.Method != http.MethodPut {
+			t.Errorf("unexpected method: %s", r.Method)
+		}
+		receivedPath = r.URL.Path
+		body, _ := io.ReadAll(r.Body)
+		receivedBody = string(body)
+		w.WriteHeader(http.StatusCreated)
+	}))
+	defer server.Close()
+
+	tmpDir := t.TempDir()
+	tmpFile := filepath.Join(tmpDir, "chef_18.4.12-1_amd64.deb")
+	os.WriteFile(tmpFile, []byte("package content"), 0644)
+
+	client := NewClient(server.URL, WithToken("test-token"))
+	err := client.Upload(context.Background(), "chef-el9-x86_64-yum", "chef/18.4.12/chef.rpm", tmpFile)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	expectedPath := "/chef-el9-x86_64-yum/chef/18.4.12/chef.rpm"
+	if receivedPath != expectedPath {
+		t.Errorf("expected path %q, got %q", expectedPath, receivedPath)
+	}
+	if receivedBody != "package content" {
+		t.Errorf("expected body 'package content', got %q", receivedBody)
+	}
+}
+
+func TestAuth_Token(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		auth := r.Header.Get("Authorization")
+		if auth != "Bearer test-token" {
+			t.Errorf("expected Bearer token auth, got: %s", auth)
+		}
+		w.WriteHeader(http.StatusOK)
+		w.Write([]byte("{}"))
+	}))
+	defer server.Close()
+
+	client := NewClient(server.URL, WithToken("test-token"))
+	_, err := client.RepoExists(context.Background(), "test")
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+}
+
+func TestAuth_BasicAuth(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		user, pass, ok := r.BasicAuth()
+		if !ok {
+			t.Error("expected basic auth")
+		}
+		if user != "admin" || pass != "secret" {
+			t.Errorf("unexpected creds: %s/%s", user, pass)
+		}
+		w.WriteHeader(http.StatusOK)
+		w.Write([]byte("{}"))
+	}))
+	defer server.Close()
+
+	client := NewClient(server.URL, WithBasicAuth("admin", "secret"))
+	_, err := client.RepoExists(context.Background(), "test")
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+}
+
+func TestUpload_FileNotFound(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusCreated)
+	}))
+	defer server.Close()
+
+	client := NewClient(server.URL, WithToken("test-token"))
+	err := client.Upload(context.Background(), "repo", "path", "/nonexistent/file")
+	if err == nil {
+		t.Fatal("expected error")
+	}
+}
+
+func TestUpload_HTTPError(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusForbidden)
+		w.Write([]byte("access denied"))
+	}))
+	defer server.Close()
+
+	tmpDir := t.TempDir()
+	tmpFile := filepath.Join(tmpDir, "test.rpm")
+	os.WriteFile(tmpFile, []byte("content"), 0644)
+
+	client := NewClient(server.URL, WithToken("test-token"))
+	err := client.Upload(context.Background(), "repo", "path/test.rpm", tmpFile)
+	if err == nil {
+		t.Fatal("expected error")
+	}
+	if !strings.Contains(err.Error(), "403") {
+		t.Errorf("expected 403 in error, got: %v", err)
+	}
+}

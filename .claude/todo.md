@@ -37,20 +37,20 @@
 - [x] Write tests for download logic (httptest, temp dirs, SHA256 checks)
 
 ## pkg/nexus — Nexus REST Client
-- [ ] Define Client struct with URL, username, password
-- [ ] Implement RepoExists(ctx, name) → bool
-- [ ] Implement CreateRepo(ctx, name, repoType) — support yum, apt, nuget, raw hosted repos
-- [ ] Implement Upload(ctx, repoName, remotePath, localFilePath) for single asset
+- [x] Define Client struct with URL, username, password
+- [x] Implement RepoExists(ctx, name) → bool
+- [x] Implement CreateRepo(ctx, name, repoType) — support yum, apt, nuget, raw hosted repos
+- [x] Implement Upload(ctx, repoName, remotePath, localFilePath) for single asset
 - [ ] Implement UploadPackages(ctx, []DownloadResult, repoPrefix, createRepos) orchestration
-- [ ] Write tests for Nexus client
+- [x] Write tests for Nexus client
 
 ## pkg/artifactory — Artifactory REST Client
-- [ ] Define Client struct with URL, token, username, password (token takes precedence)
-- [ ] Implement RepoExists(ctx, name) → bool
-- [ ] Implement CreateRepo(ctx, name, repoType) — support yum, apt, nuget, generic local repos
-- [ ] Implement Upload(ctx, repoName, remotePath, localFilePath) via PUT deploy
+- [x] Define Client struct with URL, token, username, password (token takes precedence)
+- [x] Implement RepoExists(ctx, name) → bool
+- [x] Implement CreateRepo(ctx, name, repoType) — support yum, apt, nuget, generic local repos
+- [x] Implement Upload(ctx, repoName, remotePath, localFilePath) via PUT deploy
 - [ ] Implement UploadPackages(ctx, []DownloadResult, repoPrefix, createRepos) orchestration
-- [ ] Write tests for Artifactory client
+- [x] Write tests for Artifactory client
 
 ## Output & Progress
 - [ ] Implement TTY detection using golang.org/x/term

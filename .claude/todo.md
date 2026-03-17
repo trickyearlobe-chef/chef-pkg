@@ -15,13 +15,13 @@
 - [ ] Add fallback behavior with warnings for unknown platforms/versions
 
 ## pkg/chefapi — Chef Downloads API Client
-- [ ] Define types: PackageDetail, PackagesResponse (nested map), FlatPackage
-- [ ] Implement Flatten() method on PackagesResponse with sorting
-- [ ] Define APIError type with status code and response body
-- [ ] Implement Client struct with functional options (WithBaseURL, WithHTTPClient)
-- [ ] Implement NewClient(licenseID, ...ClientOption) constructor
-- [ ] Implement FetchPackages(ctx, channel, product, version) → (PackagesResponse, error)
-- [ ] Write httptest-based tests: success, API error, invalid JSON
+- [x] Define types: PackageDetail, PackagesResponse (nested map), FlatPackage
+- [x] Implement Flatten() method on PackagesResponse with sorting
+- [x] Define APIError type with status code and response body
+- [x] Implement Client struct with functional options (WithBaseURL, WithHTTPClient)
+- [x] Implement NewClient(licenseID, ...ClientOption) constructor
+- [x] Implement FetchPackages(ctx, channel, product, version) → (PackagesResponse, error)
+- [x] Write httptest-based tests: success, API error, invalid JSON
 
 ## pkg/downloader — Download Orchestration
 - [ ] Define Downloader struct with concurrency, dest dir, skip-existing config
@@ -56,16 +56,23 @@
 - [ ] Respect --no-progress flag to force line-by-line even in interactive mode
 
 ## cmd/root.go — Root Command
-- [ ] Set up Cobra root command with description
-- [ ] Configure Viper: config file (~/.chef-pkg.toml), env prefix (CHEFPKG_), auto-bind
-- [ ] Add persistent flags: --config, --license-id, --base-url, --channel, --no-progress
-- [ ] Bind persistent flags to Viper keys
+- [x] Set up Cobra root command with description
+- [x] Configure Viper: config file (~/.chef-pkg.toml), env prefix (CHEFPKG_), auto-bind
+- [x] Add persistent flags: --config, --license-id, --base-url, --channel, --no-progress
+- [x] Bind persistent flags to Viper keys
+
+## cmd/root_configure.go — configure Subcommand
+- [x] Add configure subcommand with flags for each config item and --show
+- [x] Implement config file read/create/update logic (merge with existing values)
+- [x] Implement --show with secret masking (license_id, password, token fields)
+- [x] Implement mask function: show first 4 + last 4 chars with **** in between, or **** if < 10 chars
+- [x] Write tests for masking logic and config write/read round-trip
 
 ## cmd/root_packages.go — packages Subcommand
-- [ ] Add packages subcommand with flags: --product, --version, --platform, --arch, --output
-- [ ] Implement RunE: create chefapi.Client, call FetchPackages, Flatten, filter, output
-- [ ] Implement table output via text/tabwriter
-- [ ] Implement JSON output with indented encoding
+- [x] Add packages subcommand with flags: --product, --version, --platform, --arch, --output
+- [x] Implement RunE: create chefapi.Client, call FetchPackages, Flatten, filter, output
+- [x] Implement table output via text/tabwriter
+- [x] Implement JSON output with indented encoding
 
 ## cmd/root_download.go — download Subcommand
 - [ ] Add download subcommand with flags: --product, --version, --platform, --arch, --dest, --skip-existing, --concurrency
@@ -90,7 +97,7 @@
 - [ ] Display progress or line-by-line logs
 
 ## main.go — Entrypoint
-- [ ] Create main.go that calls cmd.Execute()
+- [x] Create main.go that calls cmd.Execute()
 
 ## Integration & Polish
 - [ ] End-to-end manual test with real Chef API (requires valid license ID)

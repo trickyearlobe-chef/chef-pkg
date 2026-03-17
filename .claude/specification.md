@@ -16,6 +16,7 @@
 ```
 cmd/
   root.go                            → chef-pkg (global config via Viper)
+  root_configure.go                  → chef-pkg configure (set/show config)
   root_packages.go                   → chef-pkg packages (list available packages)
   root_download.go                   → chef-pkg download (fetch to local disk)
   root_upload.go                     → chef-pkg upload (parent — no action alone)
@@ -75,6 +76,51 @@ Persistent flags (available to all subcommands):
 | `--base-url` | `chef.base_url` | `CHEFPKG_CHEF_BASE_URL` | `https://commercial-acceptance.downloads.chef.co` | API base URL |
 | `--channel` | `chef.channel` | `CHEFPKG_CHEF_CHANNEL` | `current` | Release channel |
 | `--no-progress` | — | — | `false` | Force line-by-line output even in interactive mode |
+
+### `chef-pkg configure`
+
+Set or display configuration values. When called with flags, updates the
+config file with the specified values. When called with `--show`, displays
+the current resolved configuration with secrets masked.
+
+Config file location: `~/.chef-pkg.toml` (or the path given by `--config`).
+If the file does not exist, it is created.
+
+| Flag | Config key | Description |
+|---|---|---|
+| `--license-id` | `chef.license_id` | Chef license ID |
+| `--base-url` | `chef.base_url` | Base URL of the Chef downloads API |
+| `--channel` | `chef.channel` | Release channel |
+| `--download-dest` | `download.dest` | Download destination directory |
+| `--download-concurrency` | `download.concurrency` | Max parallel downloads |
+| `--nexus-url` | `nexus.url` | Nexus server URL |
+| `--nexus-username` | `nexus.username` | Nexus username |
+| `--nexus-password` | `nexus.password` | Nexus password |
+| `--artifactory-url` | `artifactory.url` | Artifactory server URL |
+| `--artifactory-token` | `artifactory.token` | Artifactory API token |
+| `--artifactory-username` | `artifactory.username` | Artifactory username |
+| `--artifactory-password` | `artifactory.password` | Artifactory password |
+| `--show` | — | Display current resolved config and exit |
+
+Secret fields (`license_id`, `password`, `token`) are masked in `--show` output.
+A masked value shows the first 4 and last 4 characters with `****` in between,
+or `****` if the value is shorter than 10 characters.
+
+Examples:
+
+```
+# Set your license ID
+chef-pkg configure --license-id xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx
+
+# Set multiple values at once
+chef-pkg configure --nexus-url https://nexus.example.com --nexus-username admin --nexus-password secret
+
+# Show current configuration
+chef-pkg configure --show
+
+# Use a custom config file location
+chef-pkg --config /path/to/config.toml configure --license-id xxxx
+```
 
 ### `chef-pkg packages`
 

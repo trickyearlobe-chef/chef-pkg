@@ -14,14 +14,14 @@ SECRET_PATTERNS := \
 	'AKIA[0-9A-Z]{16}' \
 	'-----BEGIN (RSA |EC |DSA )?PRIVATE KEY-----'
 
-.PHONY: all build test test-verbose lint fmt vet clean tidy \
-        setup-hooks remove-hooks help
+.PHONY: help all build test test-verbose lint fmt vet clean tidy \
+        setup-hooks remove-hooks
 
-all: fmt vet test build ## Default: format, vet, test, then build
-
-help: ## Show this help
+help: ## Show this help (default)
 	@grep -E '^[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) | \
 		awk 'BEGIN {FS = ":.*?## "}; {printf "  \033[36m%-18s\033[0m %s\n", $$1, $$2}'
+
+all: fmt vet test build ## Format, vet, test, then build
 
 build: ## Build the binary
 	@mkdir -p $(BUILD_DIR)

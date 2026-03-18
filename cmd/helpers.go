@@ -33,21 +33,17 @@ func filterPackages(packages []chefapi.FlatPackage, platform, arch string) []che
 
 // outputTable prints a slice of FlatPackage as an aligned text table to stdout.
 func outputTable(packages []chefapi.FlatPackage) error {
+	packages = redactPackagesForOutput(packages)
 	w := tabwriter.NewWriter(os.Stdout, 0, 0, 2, ' ', 0)
-	fmt.Fprintln(w, "PLATFORM\tVERSION\tARCH\tPACKAGE VERSION\tURL\tSHA256")
-	fmt.Fprintln(w, "--------\t-------\t----\t---------------\t---\t------")
+	fmt.Fprintln(w, "PLATFORM\tVERSION\tARCH\tPACKAGE VERSION\tSHA256")
+	fmt.Fprintln(w, "--------\t-------\t----\t---------------\t------")
 	for _, pkg := range packages {
-		sha := pkg.SHA256
-		if len(sha) > 12 {
-			sha = sha[:12] + "..."
-		}
-		fmt.Fprintf(w, "%s\t%s\t%s\t%s\t%s\t%s\n",
+		fmt.Fprintf(w, "%s\t%s\t%s\t%s\t%s\n",
 			pkg.Platform,
 			pkg.PlatformVersion,
 			pkg.Architecture,
 			pkg.Version,
-			pkg.URL,
-			sha,
+			pkg.SHA256,
 		)
 	}
 	return w.Flush()
@@ -55,7 +51,20 @@ func outputTable(packages []chefapi.FlatPackage) error {
 
 // outputJSON prints a slice of FlatPackage as pretty-printed JSON to stdout.
 func outputJSON(packages []chefapi.FlatPackage) error {
+	packages = redactPackagesForOutput(packages)
 	enc := json.NewEncoder(os.Stdout)
 	enc.SetIndent("", "  ")
 	return enc.Encode(packages)
+}
+
+func redactPackagesForOutput(packages []chefapi.FlatPackage) []chefapi.FlatPackage {
+	if len(packages) == 0 {
+		return packages
+	}
+	out := make([]chefapi.FlatPackage, len(packages))
+	for i := range packages {
+		out[i] = packages[i]
+		out[i].URL = ""
+	}
+	return out
 }

@@ -7,7 +7,7 @@ import (
 func TestMaskSecret_LongValue(t *testing.T) {
 	// Secrets should never expose any part of the original value.
 	got := maskSecret("abcdefghijklmnop")
-	want := "****"
+	want := "*****"
 	if got != want {
 		t.Errorf("maskSecret(abcdefghijklmnop) = %q, want %q", got, want)
 	}
@@ -15,7 +15,7 @@ func TestMaskSecret_LongValue(t *testing.T) {
 
 func TestMaskSecret_UUID(t *testing.T) {
 	got := maskSecret("550e8400-e29b-41d4-a716-446655440000")
-	want := "****"
+	want := "*****"
 	if got != want {
 		t.Errorf("maskSecret(uuid) = %q, want %q", got, want)
 	}
@@ -24,7 +24,7 @@ func TestMaskSecret_UUID(t *testing.T) {
 func TestMaskSecret_ShortValue(t *testing.T) {
 	// Values < 10 chars should be fully masked
 	got := maskSecret("secret")
-	want := "****"
+	want := "*****"
 	if got != want {
 		t.Errorf("maskSecret(secret) = %q, want %q", got, want)
 	}
@@ -32,7 +32,7 @@ func TestMaskSecret_ShortValue(t *testing.T) {
 
 func TestMaskSecret_ExactlyTen(t *testing.T) {
 	got := maskSecret("1234567890")
-	want := "****"
+	want := "*****"
 	if got != want {
 		t.Errorf("maskSecret(1234567890) = %q, want %q", got, want)
 	}

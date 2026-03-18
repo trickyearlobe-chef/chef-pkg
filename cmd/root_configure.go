@@ -211,7 +211,7 @@ func maskSecret(val string) string {
 	if val == "" {
 		return ""
 	}
-	return "****"
+	return "*****"
 }
 
 // isSecretKey returns true if the config key refers to a secret value.

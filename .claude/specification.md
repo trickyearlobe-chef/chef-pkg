@@ -19,13 +19,19 @@
 cmd/
   root.go                            → chef-pkg (global config via Viper)
   root_configure.go                  → chef-pkg configure (set/show config)
-  root_products.go                   → chef-pkg products (list available products)
-  root_versions.go                   → chef-pkg versions (list versions for a product)
-  root_packages.go                   → chef-pkg packages (list available packages)
-  root_download.go                   → chef-pkg download (fetch to local disk)
+  root_list.go                        → chef-pkg list (parent — no action alone)
+  root_list_products.go               → chef-pkg list products
+  root_list_versions.go               → chef-pkg list versions
+  root_list_packages.go               → chef-pkg list packages
+  root_download.go                    → chef-pkg download (parent — no action alone)
+  root_download_packages.go           → chef-pkg download packages
   root_upload.go                     → chef-pkg upload (parent — no action alone)
   root_upload_nexus.go               → chef-pkg upload nexus
   root_upload_artifactory.go         → chef-pkg upload artifactory
+  root_clean.go                      → chef-pkg clean (parent — no action alone)
+  root_clean_packages.go             → chef-pkg clean packages
+  root_clean_nexus.go                → chef-pkg clean nexus (hidden)
+  root_raw.go                        → chef-pkg raw get (raw API explorer)
 ```
 
 ## Library Packages
@@ -49,7 +55,7 @@ All config items can also be set via environment variables prefixed with `CHEFPK
 [chef]
 license_id = "xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx"
 base_url = "https://commercial-acceptance.downloads.chef.co"
-channel = "current"
+channel = "stable"
 
 [download]
 dest = "./packages"
@@ -78,7 +84,7 @@ Persistent flags (available to all subcommands):
 | `--config` | — | — | `~/.chef-pkg.toml` | Config file path |
 | `--license-id` | `chef.license_id` | `CHEFPKG_CHEF_LICENSE_ID` | — | Chef license ID (required) |
 | `--base-url` | `chef.base_url` | `CHEFPKG_CHEF_BASE_URL` | `https://commercial-acceptance.downloads.chef.co` | API base URL |
-| `--channel` | `chef.channel` | `CHEFPKG_CHEF_CHANNEL` | `current` | Release channel |
+| `--channel` | `chef.channel` | `CHEFPKG_CHEF_CHANNEL` | `stable` | Release channel |
 | `--no-progress` | — | — | `false` | Force line-by-line output even in interactive mode |
 
 ### `chef-pkg configure`
@@ -93,8 +99,8 @@ If the file does not exist, it is created.
 | Flag | Config key | Description |
 |---|---|---|
 | `--license-id` | `chef.license_id` | Chef license ID |
-| `--base-url` | `chef.base_url` | Base URL of the Chef downloads API |
-| `--channel` | `chef.channel` | Release channel |
+| `--cfg-base-url` | `chef.base_url` | Base URL of the Chef downloads API |
+| `--cfg-channel` | `chef.channel` | Release channel |
 | `--download-dest` | `download.dest` | Download destination directory |
 | `--download-concurrency` | `download.concurrency` | Max parallel downloads |
 | `--nexus-url` | `nexus.url` | Nexus server URL |
@@ -107,8 +113,7 @@ If the file does not exist, it is created.
 | `--show` | — | Display current resolved config and exit |
 
 Secret fields (`license_id`, `password`, `token`) are masked in `--show` output.
-A masked value shows the first 4 and last 4 characters with `****` in between,
-or `****` if the value is shorter than 10 characters.
+A masked value is fully redacted as `*****`.
 
 Examples:
 
@@ -126,7 +131,7 @@ chef-pkg configure --show
 chef-pkg --config /path/to/config.toml configure --license-id xxxx
 ```
 
-### `chef-pkg products`
+### `chef-pkg list products`
 
 List all available products from the Chef downloads API.
 
@@ -136,7 +141,7 @@ List all available products from the Chef downloads API.
 
 No additional flags beyond the inherited root flags. Calls `GET /products?license_id={id}`.
 
-### `chef-pkg versions`
+### `chef-pkg list versions`
 
 List available versions for a given product and channel.
 
@@ -147,26 +152,32 @@ List available versions for a given product and channel.
 
 Calls `GET /{channel}/{product}/versions/all?license_id={id}`.
 
-### `chef-pkg packages`
+### `chef-pkg list packages`
 
 List available packages from the Chef API.
 
 | Flag | Short | Default | Description |
 |---|---|---|---|
-| `--product` | `-p` | `chef-ice` | Product name |
-| `--version` | `-v` | *(required)* | Product version |
+| `--product` | `-p` | `chef` | Product name |
+| `--version` | `-v` | `latest` | Product version (`semver`, `latest`, or `all`; major-only like `18` is allowed) |
 | `--platform` | | | Filter by platform (substring, case-insensitive) |
 | `--arch` | | | Filter by architecture |
 | `--output` | `-o` | `table` | Output format: `table` or `json` |
 
-### `chef-pkg download`
+Package listing output intentionally does not include the package URL, because it
+can embed `license_id`.
+
+- Table output omits the URL column entirely and prints full SHA256 values.
+- JSON output redacts the `url` field to an empty string.
+
+### `chef-pkg download packages`
 
 Download packages to local disk.
 
 | Flag | Short | Config key | Default | Description |
 |---|---|---|---|---|
-| `--product` | `-p` | | `chef-ice` | Product name |
-| `--version` | `-v` | | *(required)* | Product version |
+| `--product` | `-p` | | `chef` | Product name |
+| `--version` | `-v` | | `latest` | Product version (`semver`, `latest`, or `all`; major-only like `18` is allowed) |
 | `--platform` | | | | Filter by platform |
 | `--arch` | | | | Filter by architecture |
 | `--dest` | `-d` | `download.dest` | `./packages` | Destination root directory |
@@ -180,8 +191,8 @@ Upload downloaded packages to Sonatype Nexus.
 | Flag | Short | Config key | Default | Description |
 |---|---|---|---|---|
 | `--source` | `-s` | `download.dest` | `./packages` | Local package directory |
-| `--product` | `-p` | | `chef-ice` | Product name |
-| `--version` | `-v` | | *(required)* | Product version |
+| `--product` | `-p` | | `chef` | Product name |
+| `--version` | `-v` | | `latest` | Product version (`semver`, `latest`, or `all`; major-only like `18` is allowed) |
 | `--platform` | | | | Filter by platform |
 | `--arch` | | | | Filter by architecture |
 | `--nexus-url` | | `nexus.url` | | Nexus server URL |
@@ -198,8 +209,8 @@ Upload downloaded packages to JFrog Artifactory.
 | Flag | Short | Config key | Default | Description |
 |---|---|---|---|---|
 | `--source` | `-s` | `download.dest` | `./packages` | Local package directory |
-| `--product` | `-p` | | `chef-ice` | Product name |
-| `--version` | `-v` | | *(required)* | Product version |
+| `--product` | `-p` | | `chef` | Product name |
+| `--version` | `-v` | | `latest` | Product version (`semver`, `latest`, or `all`; major-only like `18` is allowed) |
 | `--platform` | | | | Filter by platform |
 | `--arch` | | | | Filter by architecture |
 | `--artifactory-url` | | `artifactory.url` | | Artifactory server URL |
@@ -358,10 +369,8 @@ inspec/6.8.1/inspec-6.8.1-1.el9.x86_64.rpm
 
 ## Output Behavior
 
-- **Interactive** (stdout is a TTY): Progress bars via `schollz/progressbar/v3`
-- **Batch** (stdout is not a TTY, or `--no-progress` flag): Line-by-line logging
-
-TTY detection via `golang.org/x/term.IsTerminal()`.
+Currently, output is line-by-line logging. TTY detection and interactive
+progress bars are planned but not yet implemented.
 
 ### Batch output format
 
@@ -379,8 +388,24 @@ TTY detection via `golang.org/x/term.IsTerminal()`.
 |---|---|
 | `github.com/spf13/cobra` | CLI framework |
 | `github.com/spf13/viper` | Config files + env vars |
-| `github.com/schollz/progressbar/v3` | Interactive progress bars |
-| `golang.org/x/term` | TTY detection |
+| *(planned)* `github.com/schollz/progressbar/v3` | Interactive progress bars |
+| *(planned)* `golang.org/x/term` | TTY detection |
+
+## Raw API Explorer
+
+`chef-pkg raw get <path>` sends a raw GET request to an arbitrary API path and
+prints the response body.
+
+Query parameters must be passed via `--query key=value` (repeatable). These are
+combined with the required `license_id` automatically.
+
+Examples:
+
+```
+chef-pkg raw get /stable/chef/versions/all
+chef-pkg raw get /stable/chef/packages --query v=18.9.4
+chef-pkg raw get /stable/chef-ice/packages --query p=linux --query m=linux
+```
 
 ## Testing
 

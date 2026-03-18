@@ -68,7 +68,7 @@
 - [x] Add configure subcommand with flags for each config item and --show
 - [x] Implement config file read/create/update logic (merge with existing values)
 - [x] Implement --show with secret masking (license_id, password, token fields)
-- [x] Implement mask function: show first 4 + last 4 chars with **** in between, or **** if < 10 chars
+- [x] Implement mask function: fully redact secret values as *****
 - [x] Write tests for masking logic and config write/read round-trip
 
 ## cmd/root_products.go — products Subcommand
@@ -93,21 +93,21 @@
 - [x] Display progress (interactive) or line-by-line logs (batch)
 
 ## cmd/root_upload.go — upload Parent Command
-- [ ] Add upload parent command (no action, just groups nexus/artifactory)
+- [x] Add upload parent command (no action, just groups nexus/artifactory)
 
 ## cmd/root_upload_nexus.go — upload nexus Subcommand
-- [ ] Add upload nexus subcommand with flags: --source, --product, --version, --platform, --arch, --nexus-url, --nexus-username, --nexus-password, --repo-prefix, --create-repos, --fetch
-- [ ] Bind flags to Viper keys for nexus config
-- [ ] Implement RunE: optionally fetch+download, then upload to Nexus with repo creation
-- [ ] Use repomap for repo type/name resolution
-- [ ] Display progress or line-by-line logs
+- [x] Add upload nexus subcommand with flags: --source, --product, --version, --platform, --arch, --nexus-url, --nexus-username, --nexus-password, --repo-prefix, --create-repos, --fetch
+- [x] Bind flags to Viper keys for nexus config
+- [x] Implement RunE: optionally fetch+download, then upload to Nexus with repo creation
+- [x] Use repomap for repo type/name resolution
+- [x] Display progress or line-by-line logs
 
 ## cmd/root_upload_artifactory.go — upload artifactory Subcommand
-- [ ] Add upload artifactory subcommand with flags: --source, --product, --version, --platform, --arch, --artifactory-url, --artifactory-token, --artifactory-username, --artifactory-password, --repo-prefix, --create-repos, --fetch
-- [ ] Bind flags to Viper keys for artifactory config
-- [ ] Implement RunE: optionally fetch+download, then upload to Artifactory with repo creation
-- [ ] Use repomap for repo type/name resolution
-- [ ] Display progress or line-by-line logs
+- [x] Add upload artifactory subcommand with flags: --source, --product, --version, --platform, --arch, --artifactory-url, --artifactory-token, --artifactory-username, --artifactory-password, --repo-prefix, --create-repos, --fetch
+- [x] Bind flags to Viper keys for artifactory config
+- [x] Implement RunE: optionally fetch+download, then upload to Artifactory with repo creation
+- [x] Use repomap for repo type/name resolution
+- [x] Display progress or line-by-line logs
 
 ## main.go — Entrypoint
 - [x] Create main.go that calls cmd.Execute()
@@ -116,5 +116,5 @@
 - [ ] End-to-end manual test with real Chef API (requires valid license ID)
 - [ ] End-to-end test with Nexus (requires running Nexus instance)
 - [ ] End-to-end test with Artifactory (requires running Artifactory instance)
-- [ ] Add README.md with usage examples
-- [ ] Add Makefile or Goreleaser config for building
+- [x] Add README.md with usage examples
+- [x] Add Makefile or Goreleaser config for building

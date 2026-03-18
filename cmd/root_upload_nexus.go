@@ -61,7 +61,7 @@ func init() {
 	uploadNexusCmd.Flags().String("arch", "", "Filter by architecture (substring match, case-insensitive)")
 	uploadNexusCmd.Flags().Bool("fetch", false, "Fetch from Chef API and download before uploading")
 	uploadNexusCmd.Flags().Bool("create-repos", false, "Create missing Nexus repositories before upload")
-	uploadNexusCmd.Flags().String("repo-prefix", "", "Prefix for generated repo names (default: product name)")
+	uploadNexusCmd.Flags().String("repo-prefix", "chef", "Prefix for generated repo names (default: chef)")
 	uploadNexusCmd.Flags().String("source", "", "Source directory for downloaded packages (default: ./packages)")
 	uploadNexusCmd.Flags().String("nexus-url", "", "Nexus server URL")
 	uploadNexusCmd.Flags().String("nexus-username", "", "Nexus username")
@@ -114,9 +114,7 @@ func runUploadNexus(cmd *cobra.Command, args []string) error {
 		versionFlag = "latest"
 	}
 
-	if repoPrefix == "" {
-		repoPrefix = product
-	}
+	repoPrefix = resolveRepoPrefix(repoPrefix)
 
 	if source == "" {
 		source = viper.GetString("download.dest")

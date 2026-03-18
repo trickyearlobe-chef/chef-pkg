@@ -161,6 +161,101 @@ func TestResolveVersions_Exact(t *testing.T) {
 	}
 }
 
+func TestResolveVersions_MajorOnly(t *testing.T) {
+	allVersions := []string{"19.0.0", "18.5.0", "18.4.12", "17.9.9"}
+	server := testVersionServer(t, allVersions, nil)
+	defer server.Close()
+
+	client := chefapi.NewClient("test-license", chefapi.WithBaseURL(server.URL))
+
+	versions, err := resolveVersions(context.Background(), client, "stable", "chef", "18", "", "")
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if len(versions) != 2 || versions[0] != "18.4.12" || versions[1] != "18.5.0" {
+		t.Errorf("expected [18.5.0], got %v", versions)
+	}
+}
+
+func TestResolveVersions_MajorOnly_WithPlatformFilter(t *testing.T) {
+	allVersions := []string{"19.0.0", "18.5.0", "18.4.12"}
+	packagesByVersion := map[string]chefapi.PackagesResponse{
+		"19.0.0": {
+			"el": {
+				"9": {
+					"x86_64": chefapi.PackageDetail{Version: "19.0.0"},
+				},
+			},
+		},
+		"18.5.0": {
+			"ubuntu": {
+				"22.04": {
+					"x86_64": chefapi.PackageDetail{Version: "18.5.0"},
+				},
+			},
+		},
+	}
+	server := testVersionServer(t, allVersions, packagesByVersion)
+	defer server.Close()
+
+	client := chefapi.NewClient("test-license", chefapi.WithBaseURL(server.URL))
+
+	versions, err := resolveVersions(context.Background(), client, "stable", "chef", "18", "ubuntu", "")
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if len(versions) != 1 || versions[0] != "18.5.0" {
+		t.Errorf("expected [18.5.0], got %v", versions)
+	}
+}
+
+func TestResolveVersions_MajorOnly_NoMatch(t *testing.T) {
+	allVersions := []string{"19.0.0", "18.5.0"}
+	server := testVersionServer(t, allVersions, nil)
+	defer server.Close()
+
+	client := chefapi.NewClient("test-license", chefapi.WithBaseURL(server.URL))
+
+	_, err := resolveVersions(context.Background(), client, "stable", "chef", "18", "solaris", "")
+	if err == nil {
+		t.Fatal("expected error when no version matches major-only filter")
+	}
+}
+
+func TestResolveVersions_MajorOnly_FallsBackToExactMajor(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch {
+		case r.URL.Path == "/stable/chef/versions/all":
+			json.NewEncoder(w).Encode([]string{"19.0.0", "18.5.0"})
+		case r.URL.Path == "/stable/chef/packages":
+			if r.URL.Query().Get("v") == "17" {
+				json.NewEncoder(w).Encode(chefapi.PackagesResponse{
+					"el": {
+						"9": {
+							"x86_64": chefapi.PackageDetail{Version: "17.9.9"},
+						},
+					},
+				})
+				return
+			}
+			json.NewEncoder(w).Encode(chefapi.PackagesResponse{})
+		default:
+			w.WriteHeader(http.StatusNotFound)
+		}
+	}))
+	defer server.Close()
+
+	client := chefapi.NewClient("test-license", chefapi.WithBaseURL(server.URL))
+
+	versions, err := resolveVersions(context.Background(), client, "stable", "chef", "17", "", "")
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if len(versions) != 1 || versions[0] != "17" {
+		t.Errorf("expected [17], got %v", versions)
+	}
+}
+
 func TestResolveVersions_ExactInvalid(t *testing.T) {
 	_, err := resolveVersions(context.Background(), nil, "stable", "chef", "not-a-version", "", "")
 	if err == nil {

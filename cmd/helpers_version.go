@@ -100,9 +100,12 @@ func resolveVersions(
 	case "all":
 		return resolveAll(ctx, client, channel, product)
 	default:
-		// Treat as an exact version — validate it looks like semver
-		if _, _, _, ok := parseSemver(versionFlag); !ok {
+		major, minor, patch, ok := parseSemver(versionFlag)
+		if !ok {
 			return nil, fmt.Errorf("invalid version %q: expected semver (e.g. 18.4.12), 'latest', or 'all'", versionFlag)
+		}
+		if minor == 0 && patch == 0 && !strings.Contains(versionFlag, ".") {
+			return resolveMajor(ctx, client, channel, product, major, platform, arch)
 		}
 		return []string{versionFlag}, nil
 	}
@@ -196,4 +199,63 @@ func resolveLatest(
 
 	return nil, fmt.Errorf("no version of %s on %s channel has packages matching platform=%q arch=%q",
 		product, channel, platform, arch)
+}
+
+// resolveMajor returns all versions within a major release line, newest last.
+func resolveMajor(
+	ctx context.Context,
+	client *chefapi.Client,
+	channel, product string,
+	major int,
+	platform, arch string,
+) ([]string, error) {
+	versions, err := client.FetchVersions(ctx, channel, product)
+	if err != nil {
+		return nil, fmt.Errorf("fetching versions: %w", err)
+	}
+	if len(versions) == 0 {
+		return nil, fmt.Errorf("no versions found for %s on %s channel", product, channel)
+	}
+
+	var matching []string
+	for _, v := range versions {
+		vMajor, _, _, ok := parseSemver(v)
+		if ok && vMajor == major {
+			matching = append(matching, v)
+		}
+	}
+
+	if len(matching) == 0 {
+		if platform == "" && arch == "" {
+			if resp, err := client.FetchPackages(ctx, channel, product, fmt.Sprintf("%d", major)); err == nil {
+				if packages := resp.Flatten(); len(packages) > 0 {
+					return []string{fmt.Sprintf("%d", major)}, nil
+				}
+			}
+		}
+		return nil, fmt.Errorf("no version of %s on %s channel matches major=%d platform=%q arch=%q",
+			product, channel, major, platform, arch)
+	}
+
+	sortVersionsSemver(matching)
+	if platform == "" && arch == "" {
+		return matching, nil
+	}
+
+	var filtered []string
+	for _, v := range matching {
+		resp, err := client.FetchPackages(ctx, channel, product, v)
+		if err != nil {
+			continue
+		}
+		packages := filterPackages(resp.Flatten(), platform, arch)
+		if len(packages) > 0 {
+			filtered = append(filtered, v)
+		}
+	}
+	if len(filtered) == 0 {
+		return nil, fmt.Errorf("no version of %s on %s channel matches major=%d platform=%q arch=%q",
+			product, channel, major, platform, arch)
+	}
+	return filtered, nil
 }

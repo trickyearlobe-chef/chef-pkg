@@ -66,7 +66,7 @@ func init() {
 	uploadArtifactoryCmd.Flags().String("arch", "", "Filter by architecture (substring match, case-insensitive)")
 	uploadArtifactoryCmd.Flags().Bool("fetch", false, "Fetch from Chef API and download before uploading")
 	uploadArtifactoryCmd.Flags().Bool("create-repos", false, "Create missing Artifactory repositories before upload")
-	uploadArtifactoryCmd.Flags().String("repo-prefix", "", "Prefix for generated repo names (default: product name)")
+	uploadArtifactoryCmd.Flags().String("repo-prefix", "chef", "Prefix for generated repo names (default: chef)")
 	uploadArtifactoryCmd.Flags().String("source", "", "Source directory for downloaded packages (default: ./packages)")
 	uploadArtifactoryCmd.Flags().String("artifactory-url", "", "Artifactory server URL")
 	uploadArtifactoryCmd.Flags().String("artifactory-token", "", "Artifactory API token (takes precedence over basic auth)")
@@ -112,9 +112,7 @@ func runUploadArtifactory(cmd *cobra.Command, args []string) error {
 		versionFlag = "latest"
 	}
 
-	if repoPrefix == "" {
-		repoPrefix = product
-	}
+	repoPrefix = resolveRepoPrefix(repoPrefix)
 
 	if source == "" {
 		source = viper.GetString("download.dest")

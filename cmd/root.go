@@ -33,7 +33,7 @@ func init() {
 	rootCmd.PersistentFlags().StringVar(&cfgFile, "config", "", "config file (default $HOME/.chef-pkg.toml)")
 	rootCmd.PersistentFlags().String("license-id", "", "Chef license ID (or set CHEFPKG_CHEF_LICENSE_ID)")
 	rootCmd.PersistentFlags().String("base-url", "https://commercial-acceptance.downloads.chef.co", "Base URL of the Chef downloads API")
-	rootCmd.PersistentFlags().String("channel", "current", "Release channel (e.g. current, stable)")
+	rootCmd.PersistentFlags().String("channel", "stable", "Release channel (e.g. stable, current)")
 	rootCmd.PersistentFlags().Bool("no-progress", false, "Force line-by-line output even in interactive mode")
 
 	viper.BindPFlag("chef.license_id", rootCmd.PersistentFlags().Lookup("license-id"))

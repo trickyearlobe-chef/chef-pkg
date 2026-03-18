@@ -51,6 +51,53 @@ func TestRepoExists_False(t *testing.T) {
 	}
 }
 
+func TestRepos(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path != "/service/rest/v1/repositories" {
+			t.Errorf("unexpected path: %s", r.URL.Path)
+		}
+		if r.Method != http.MethodGet {
+			t.Errorf("unexpected method: %s", r.Method)
+		}
+		w.WriteHeader(http.StatusOK)
+		w.Write([]byte(`[{"name":"chef-el9-x86_64-yum"},{"name":"inspec-el9-x86_64-yum"},{"name":""}]`))
+	}))
+	defer server.Close()
+
+	client := NewClient(server.URL, "admin", "password")
+	got, err := client.Repos(context.Background())
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	want := []string{"chef-el9-x86_64-yum", "inspec-el9-x86_64-yum"}
+	if len(got) != len(want) {
+		t.Fatalf("Repos() length = %d, want %d", len(got), len(want))
+	}
+	for i := range want {
+		if got[i] != want[i] {
+			t.Fatalf("Repos()[%d] = %q, want %q", i, got[i], want[i])
+		}
+	}
+}
+
+func TestDeleteRepo(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path != "/service/rest/v1/repositories/chef-el9-x86_64-yum" {
+			t.Errorf("unexpected path: %s", r.URL.Path)
+		}
+		if r.Method != http.MethodDelete {
+			t.Errorf("unexpected method: %s", r.Method)
+		}
+		w.WriteHeader(http.StatusNoContent)
+	}))
+	defer server.Close()
+
+	client := NewClient(server.URL, "admin", "password")
+	if err := client.DeleteRepo(context.Background(), "chef-el9-x86_64-yum"); err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+}
+
 func TestCreateRepo_Yum(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if r.Method != http.MethodPost {

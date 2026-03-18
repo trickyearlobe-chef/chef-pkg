@@ -8,6 +8,7 @@ import (
 	"io"
 	"net/http"
 	"os"
+	"strings"
 	"time"
 )
 
@@ -59,6 +60,50 @@ func (c *Client) RepoExists(ctx context.Context, name string) (bool, error) {
 	default:
 		return false, fmt.Errorf("nexus: checking repo %s: HTTP %d", name, resp.StatusCode)
 	}
+}
+
+// Repos lists the repository names visible to the Nexus instance.
+func (c *Client) Repos(ctx context.Context) ([]string, error) {
+	resp, err := c.doRequest(ctx, http.MethodGet, "/service/rest/v1/repositories", nil)
+	if err != nil {
+		return nil, fmt.Errorf("nexus: listing repositories: %w", err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		body, _ := io.ReadAll(resp.Body)
+		return nil, fmt.Errorf("nexus: listing repositories: HTTP %d: %s", resp.StatusCode, strings.TrimSpace(string(body)))
+	}
+
+	var payload []struct {
+		Name string `json:"name"`
+	}
+	if err := json.NewDecoder(resp.Body).Decode(&payload); err != nil {
+		return nil, fmt.Errorf("nexus: decoding repositories: %w", err)
+	}
+
+	names := make([]string, 0, len(payload))
+	for _, repo := range payload {
+		if repo.Name != "" {
+			names = append(names, repo.Name)
+		}
+	}
+	return names, nil
+}
+
+// DeleteRepo deletes a repository by name.
+func (c *Client) DeleteRepo(ctx context.Context, name string) error {
+	resp, err := c.doRequest(ctx, http.MethodDelete, "/service/rest/v1/repositories/"+name, nil)
+	if err != nil {
+		return fmt.Errorf("nexus: deleting repo %s: %w", name, err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK && resp.StatusCode != http.StatusNoContent {
+		body, _ := io.ReadAll(resp.Body)
+		return fmt.Errorf("nexus: deleting repo %s: HTTP %d: %s", name, resp.StatusCode, strings.TrimSpace(string(body)))
+	}
+	return nil
 }
 
 // CreateRepoOption is a functional option for configuring repository creation.

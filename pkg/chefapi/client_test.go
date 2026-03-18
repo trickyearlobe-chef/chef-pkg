@@ -277,3 +277,26 @@ func TestFetchVersions_APIError(t *testing.T) {
 		t.Errorf("expected status 400, got %d", apiErr.StatusCode)
 	}
 }
+
+func TestRawGet_Success(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path != "/stable/chef/versions/all" {
+			t.Errorf("unexpected path: %s", r.URL.Path)
+		}
+		if r.URL.Query().Get("license_id") != "test-license" {
+			t.Errorf("unexpected license_id: %s", r.URL.Query().Get("license_id"))
+		}
+		w.Header().Set("Content-Type", "application/json")
+		w.Write([]byte(`{"ok":true}`))
+	}))
+	defer server.Close()
+
+	client := NewClient("test-license", WithBaseURL(server.URL))
+	body, err := client.RawGet(context.Background(), "stable/chef/versions/all", nil)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if string(body) != `{"ok":true}` {
+		t.Fatalf("unexpected body: %s", string(body))
+	}
+}

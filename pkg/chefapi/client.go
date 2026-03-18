@@ -7,6 +7,7 @@ import (
 	"io"
 	"net/http"
 	"net/url"
+	"strings"
 	"time"
 )
 
@@ -87,6 +88,14 @@ func (c *Client) doGet(ctx context.Context, endpoint string, params url.Values) 
 	}
 
 	return body, nil
+}
+
+// RawGet performs a GET request against an arbitrary API path.
+func (c *Client) RawGet(ctx context.Context, path string, params url.Values) ([]byte, error) {
+	if !strings.HasPrefix(path, "/") {
+		path = "/" + path
+	}
+	return c.doGet(ctx, path, params)
 }
 
 // FetchProducts retrieves the list of available products.

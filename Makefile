@@ -14,7 +14,7 @@ SECRET_PATTERNS := \
 	'AKIA[0-9A-Z]{16}' \
 	'-----BEGIN (RSA |EC |DSA )?PRIVATE KEY-----'
 
-.PHONY: help all build test test-verbose lint fmt vet clean tidy \
+.PHONY: help all build install test test-verbose lint fmt vet clean tidy \
         setup-hooks remove-hooks
 
 help: ## Show this help (default)
@@ -26,6 +26,9 @@ all: fmt vet test build ## Format, vet, test, then build
 build: ## Build the binary
 	@mkdir -p $(BUILD_DIR)
 	$(GO) build $(GOFLAGS) -ldflags '$(LDFLAGS)' -o $(BUILD_DIR)/$(BINARY) .
+
+install: ## Install the binary into GOBIN or GOPATH/bin
+	$(GO) install $(GOFLAGS) -ldflags '$(LDFLAGS)' .
 
 test: ## Run tests
 	$(GO) test $(GOFLAGS) ./...

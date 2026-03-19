@@ -99,8 +99,10 @@ func (c *Client) RawGet(ctx context.Context, path string, params url.Values) ([]
 }
 
 // FetchProducts retrieves the list of available products.
-func (c *Client) FetchProducts(ctx context.Context) ([]string, error) {
-	body, err := c.doGet(ctx, "/products", nil)
+// If params is non-nil, those query parameters are forwarded to the API
+// (e.g. url.Values{"obsolete": {"true"}} to include end-of-life products).
+func (c *Client) FetchProducts(ctx context.Context, params url.Values) ([]string, error) {
+	body, err := c.doGet(ctx, "/products", params)
 	if err != nil {
 		return nil, err
 	}

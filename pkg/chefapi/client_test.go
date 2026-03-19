@@ -176,9 +176,18 @@ func TestFetchPackages_InvalidJSON(t *testing.T) {
 	}
 }
 
-func TestAPIError_Error(t *testing.T) {
+func TestAPIError_PlainBody(t *testing.T) {
 	e := &APIError{StatusCode: 403, Body: "forbidden"}
 	expected := "chefapi: HTTP 403: forbidden"
+	if e.Error() != expected {
+		t.Errorf("expected %q, got %q", expected, e.Error())
+	}
+}
+
+func TestAPIError_JSONBody(t *testing.T) {
+	body := `{"code":400,"status_text":"Bad Request","message":"Parameter must be within [\"chef\", \"inspec\"]"}`
+	e := &APIError{StatusCode: 400, Body: body}
+	expected := `chefapi: HTTP 400: Parameter must be within ["chef", "inspec"]`
 	if e.Error() != expected {
 		t.Errorf("expected %q, got %q", expected, e.Error())
 	}
@@ -198,7 +207,7 @@ func TestFetchProducts_Success(t *testing.T) {
 	defer server.Close()
 
 	client := NewClient("test-license", WithBaseURL(server.URL))
-	products, err := client.FetchProducts(context.Background())
+	products, err := client.FetchProducts(context.Background(), nil)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -218,7 +227,7 @@ func TestFetchProducts_APIError(t *testing.T) {
 	defer server.Close()
 
 	client := NewClient("bad-license", WithBaseURL(server.URL))
-	_, err := client.FetchProducts(context.Background())
+	_, err := client.FetchProducts(context.Background(), nil)
 	if err == nil {
 		t.Fatal("expected error, got nil")
 	}

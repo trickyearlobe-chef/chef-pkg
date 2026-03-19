@@ -1,6 +1,7 @@
 package chefapi
 
 import (
+	"encoding/json"
 	"fmt"
 	"sort"
 )
@@ -61,5 +62,11 @@ type APIError struct {
 }
 
 func (e *APIError) Error() string {
+	var parsed struct {
+		Message string `json:"message"`
+	}
+	if json.Unmarshal([]byte(e.Body), &parsed) == nil && parsed.Message != "" {
+		return fmt.Sprintf("chefapi: HTTP %d: %s", e.StatusCode, parsed.Message)
+	}
 	return fmt.Sprintf("chefapi: HTTP %d: %s", e.StatusCode, e.Body)
 }

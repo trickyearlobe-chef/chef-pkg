@@ -50,7 +50,7 @@ func sampleResponse() PackagesResponse {
 
 func TestFlatten_SortOrder(t *testing.T) {
 	resp := sampleResponse()
-	flat := resp.Flatten()
+	flat := resp.Flatten("chef")
 
 	if len(flat) != 4 {
 		t.Fatalf("expected 4 packages, got %d", len(flat))
@@ -77,7 +77,7 @@ func TestFlatten_SortOrder(t *testing.T) {
 
 func TestFlatten_PreservesDetail(t *testing.T) {
 	resp := sampleResponse()
-	flat := resp.Flatten()
+	flat := resp.Flatten("chef")
 
 	// Find the el/9/x86_64 entry
 	var found *FlatPackage
@@ -98,9 +98,20 @@ func TestFlatten_PreservesDetail(t *testing.T) {
 	}
 }
 
+func TestFlatten_SetsProductField(t *testing.T) {
+	resp := sampleResponse()
+	flat := resp.Flatten("inspec")
+
+	for i, fp := range flat {
+		if fp.Product != "inspec" {
+			t.Errorf("index %d: expected Product \"inspec\", got %q", i, fp.Product)
+		}
+	}
+}
+
 func TestFlatten_Empty(t *testing.T) {
 	resp := PackagesResponse{}
-	flat := resp.Flatten()
+	flat := resp.Flatten("chef")
 	if len(flat) != 0 {
 		t.Errorf("expected 0 packages, got %d", len(flat))
 	}
@@ -129,7 +140,7 @@ func TestFetchPackages_Success(t *testing.T) {
 		t.Fatalf("unexpected error: %v", err)
 	}
 
-	flat := resp.Flatten()
+	flat := resp.Flatten("chef-ice")
 	if len(flat) != 4 {
 		t.Errorf("expected 4 packages, got %d", len(flat))
 	}

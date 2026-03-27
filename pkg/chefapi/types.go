@@ -21,6 +21,7 @@ type PackagesResponse map[string]map[string]map[string]PackageDetail
 // FlatPackage is a denormalized view of a single package with its
 // platform, version, and architecture info included.
 type FlatPackage struct {
+	Product         string `json:"product"`
 	Platform        string `json:"platform"`
 	PlatformVersion string `json:"platform_version"`
 	Architecture    string `json:"architecture"`
@@ -28,13 +29,15 @@ type FlatPackage struct {
 }
 
 // Flatten converts the nested PackagesResponse into a sorted slice of FlatPackage.
-// Results are sorted by Platform, then PlatformVersion, then Architecture.
-func (r PackagesResponse) Flatten() []FlatPackage {
+// The product name is set on each entry. Results are sorted by Platform, then
+// PlatformVersion, then Architecture.
+func (r PackagesResponse) Flatten(product string) []FlatPackage {
 	var packages []FlatPackage
 	for platform, versions := range r {
 		for version, archs := range versions {
 			for arch, detail := range archs {
 				packages = append(packages, FlatPackage{
+					Product:         product,
 					Platform:        platform,
 					PlatformVersion: version,
 					Architecture:    arch,

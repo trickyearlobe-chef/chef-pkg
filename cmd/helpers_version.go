@@ -188,7 +188,7 @@ func resolveLatest(
 			continue
 		}
 
-		packages := resp.Flatten()
+		packages := resp.Flatten(product)
 		packages = filterPackages(packages, platform, arch)
 
 		if len(packages) > 0 {
@@ -228,7 +228,7 @@ func resolveMajor(
 	if len(matching) == 0 {
 		if platform == "" && arch == "" {
 			if resp, err := client.FetchPackages(ctx, channel, product, fmt.Sprintf("%d", major)); err == nil {
-				if packages := resp.Flatten(); len(packages) > 0 {
+				if packages := resp.Flatten(product); len(packages) > 0 {
 					return []string{fmt.Sprintf("%d", major)}, nil
 				}
 			}
@@ -248,7 +248,7 @@ func resolveMajor(
 		if err != nil {
 			continue
 		}
-		packages := filterPackages(resp.Flatten(), platform, arch)
+		packages := filterPackages(resp.Flatten(product), platform, arch)
 		if len(packages) > 0 {
 			filtered = append(filtered, v)
 		}

@@ -44,6 +44,7 @@
 - NEVER merge until the user approves.
 - NEVER push until the user approves.
 - Clean up branches after they are merged.
+- When diagnosing problems, its fine to hypothesise, but NEVER guess and start writing code. If you don't have evidence, discuss it with the user.
 
 ## Git and agents
 - Spawned agents NEVER run git commands (add, commit, push, status, etc.). Only the main Claude commits.

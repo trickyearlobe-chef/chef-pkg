@@ -19,13 +19,13 @@ Work in dependency order. Each task is a branch, tests before code.
 
 ### Phase 1: Foundations (no breaking changes yet)
 
-#### 1a. Platform normalization fixes — `pkg/repomap/`
+#### 1a. Platform normalization fixes — `pkg/repomap/` ✅
 - Add `"darwin" → "macos"` to `platformMap`
 - Add `"pv" → "generic"` rule to `NormalizePlatformVersion` (before codename lookups)
 - Tests first: new table-driven cases for darwin, pv, freebsd pass-through
 - Run: `go test -race ./pkg/repomap/...`
 
-#### 1b. RepoName drops arch parameter — `pkg/repomap/`
+#### 1b. RepoName drops arch parameter — `pkg/repomap/` ✅
 - Change `RepoName(prefix, platform, platformVersion, arch, repoType)` →
   `RepoName(prefix, platform, platformVersion, repoType)`
 - Remove arch from the generated name
@@ -35,28 +35,35 @@ Work in dependency order. Each task is a branch, tests before code.
 
 ### Phase 2: Downloader restructuring
 
-#### 2a. Directory layout change — `pkg/downloader/`
-- Change `downloadOne` path from
+#### 2a. Directory layout change — `pkg/downloader/` ✅
+- Changed `downloadOne` path from
   `{dest}/{product}/{version}/{platform}/{platform_version}/{arch}/`
   to `{dest}/{platform}/{platform_version}/{arch}/{product}/{version}/`
-- Update skip-existing sidecar logic (same approach, different directory)
-- Update all downloader tests
-- Run: `go test -race ./pkg/downloader/...`
+- Removed `product` from `Downloader` struct; product now comes from `FlatPackage.Product`
+- Added `Product` field to `chefapi.FlatPackage`
+- Updated `Flatten(product string)` to accept and set product name
+- Updated all callers: `downloader.New()`, `Flatten()`, `scanDownloadDir`
+- Updated all downloader tests
+- Run: `go test -race ./...` — all pass
 
-#### 2b. SHA256 dedup — `pkg/downloader/`
-- Add `WithDedup(bool)` option (default true)
-- Track sha256→first-download-path map in `Download()` across the batch
-- Skip download when sha256 matches, log to stderr
-- Disable dedup when sha256 is empty
-- Add `DedupSkipped` field to `DownloadResult`
-- Tests: table-driven cases for dedup hit, dedup miss, empty sha256, no-dedup flag
-- Run: `go test -race ./pkg/downloader/...`
+#### 2b. SHA256 dedup — `pkg/downloader/` ✅
+- Added `WithDedup(bool)` option (default true)
+- Thread-safe `dedupTracker` (sha256→first platform/pv) in `Download()` across batch
+- Skip download when sha256 matches; set `DedupSkipped` on result
+- Dedup disabled for empty sha256 (generic products)
+- Added `DedupSkipped` field to `DownloadResult`
+- Tests: dedup hit, dedup miss, empty sha256, no-dedup flag, concurrent dedup,
+  cross-product dedup, per-batch isolation
+- Run: `go test -race ./pkg/downloader/...` — all pass
 
-#### 2c. Warnings for generic products — `pkg/downloader/`
-- Warn to stderr when `sha256 == ""`
-- Warn to stderr when `version == "latest"` (literal string)
-- Tests: verify warnings are emitted (capture stderr or use a logger)
-- Run: `go test -race ./pkg/downloader/...`
+#### 2c. Warnings for generic products — `pkg/downloader/` ✅
+- Added `WithWarningFunc(fn)` option for non-fatal warnings
+- Warn when `sha256 == ""`: "has empty SHA256 — integrity cannot be verified"
+- Warn when `version == "latest"`: "cannot be pinned — artifact may change"
+- Thread-safe `warningTracker` deduplicates per product+warning-type
+- Tests: verify each warning emitted, no warnings for normal packages,
+  both warnings together, once-per-product dedup
+- Run: `go test -race ./pkg/downloader/...` — all pass
 
 ### Phase 3: CLI changes
 
@@ -135,13 +142,13 @@ Work in dependency order. Each task is a branch, tests before code.
 
 ## Acceptance criteria
 
-- [ ] `darwin` normalizes to `macos`
-- [ ] `"pv"` normalizes to `"generic"` in platform version
-- [ ] Repo names have no arch component
-- [ ] On-disk layout is `{platform}/{platform_version}/{arch}/{product}/{version}/`
-- [ ] SHA256 dedup skips identical platform_versions with log message
-- [ ] `--no-dedup` disables dedup
-- [ ] Empty SHA256 and literal "latest" version produce warnings
+- [x] `darwin` normalizes to `macos`
+- [x] `"pv"` normalizes to `"generic"` in platform version
+- [x] Repo names have no arch component
+- [x] On-disk layout is `{platform}/{platform_version}/{arch}/{product}/{version}/`
+- [x] SHA256 dedup skips identical platform_versions with log message
+- [x] `--no-dedup` disables dedup
+- [x] Empty SHA256 and literal "latest" version produce warnings
 - [ ] Omitting `--product` downloads all current products (excluding generics)
 - [ ] `--version all` without `--product` returns error
 - [ ] `--platform-version` filter works on download, upload, list

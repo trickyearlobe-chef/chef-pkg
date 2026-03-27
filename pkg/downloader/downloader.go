@@ -19,16 +19,22 @@ import (
 
 // DownloadResult holds the outcome of a single package download.
 type DownloadResult struct {
-	Path    string              // Local file path
-	Package chefapi.FlatPackage // The package that was downloaded
-	Skipped bool                // True if skipped due to existing file
-	Err     error               // Non-nil if download failed
+	Path         string              // Local file path
+	Package      chefapi.FlatPackage // The package that was downloaded
+	Skipped      bool                // True if skipped due to existing file
+	DedupSkipped bool                // True if skipped due to SHA256 dedup within batch
+	Err          error               // Non-nil if download failed
 }
 
 // ProgressFunc is called after each individual download completes.
 // It receives the 0-based index, total count, and the result.
 // Implementations must be safe for concurrent use.
 type ProgressFunc func(index int, total int, result DownloadResult)
+
+// WarningFunc is called when the downloader encounters a non-fatal condition
+// that the user should be aware of (e.g. empty SHA256, literal "latest" version).
+// Implementations must be safe for concurrent use.
+type WarningFunc func(msg string)
 
 // Option is a functional option for configuring a Downloader.
 type Option func(*Downloader)
@@ -63,29 +69,97 @@ func WithProgressFunc(fn ProgressFunc) Option {
 	}
 }
 
+// WithDedup enables or disables SHA256 deduplication within a download batch.
+// When enabled (the default), packages with identical SHA256 are downloaded
+// only once; subsequent duplicates are skipped with DedupSkipped=true.
+func WithDedup(enabled bool) Option {
+	return func(d *Downloader) {
+		d.dedup = enabled
+	}
+}
+
+// WithWarningFunc sets a callback for non-fatal warning messages.
+func WithWarningFunc(fn WarningFunc) Option {
+	return func(d *Downloader) {
+		d.warningFunc = fn
+	}
+}
+
 // Downloader orchestrates downloading Chef packages to a local directory.
 type Downloader struct {
 	dest         string
-	product      string
 	concurrency  int
 	skipExisting bool
+	dedup        bool
 	httpClient   *http.Client
 	progressFunc ProgressFunc
+	warningFunc  WarningFunc
 }
 
-// New creates a new Downloader.
-func New(dest, product string, opts ...Option) *Downloader {
+// New creates a new Downloader. Product information comes from each
+// FlatPackage's Product field rather than the downloader itself.
+func New(dest string, opts ...Option) *Downloader {
 	d := &Downloader{
 		dest:         dest,
-		product:      product,
 		concurrency:  4,
 		skipExisting: true,
+		dedup:        true,
 		httpClient:   &http.Client{},
 	}
 	for _, opt := range opts {
 		opt(d)
 	}
 	return d
+}
+
+// dedupTracker provides thread-safe SHA256 dedup tracking within a batch.
+type dedupTracker struct {
+	mu   sync.Mutex
+	seen map[string]string // sha256 → "{platform}/{platform_version}"
+}
+
+func newDedupTracker() *dedupTracker {
+	return &dedupTracker{seen: make(map[string]string)}
+}
+
+// check returns the original location if this SHA256 was already seen, or ""
+// if it is new. When new, it records the current location.
+func (dt *dedupTracker) check(sha256Hash, platform, platformVersion string) string {
+	if sha256Hash == "" {
+		return ""
+	}
+	dt.mu.Lock()
+	defer dt.mu.Unlock()
+	loc := fmt.Sprintf("%s/%s", platform, platformVersion)
+	if original, ok := dt.seen[sha256Hash]; ok {
+		return original
+	}
+	dt.seen[sha256Hash] = loc
+	return ""
+}
+
+// warningTracker ensures each warning fires at most once per product+type.
+type warningTracker struct {
+	mu   sync.Mutex
+	seen map[string]bool
+}
+
+func newWarningTracker() *warningTracker {
+	return &warningTracker{seen: make(map[string]bool)}
+}
+
+// warn emits the warning via fn only if the key hasn't been seen before.
+func (wt *warningTracker) warn(key string, fn WarningFunc, msg string) {
+	if fn == nil {
+		return
+	}
+	wt.mu.Lock()
+	defer wt.mu.Unlock()
+	if wt.seen[key] {
+		return
+	}
+	wt.seen[key] = true
+	fn(msg)
 }
 
 // Download fetches all given packages concurrently and returns the results.
@@ -96,14 +170,17 @@ func (d *Downloader) Download(ctx context.Context, packages []chefapi.FlatPackag
 	sem := make(chan struct{}, d.concurrency)
 	var wg sync.WaitGroup
 
+	dt := newDedupTracker()
+	wt := newWarningTracker()
 	total := len(packages)
+
 	for i, pkg := range packages {
 		wg.Add(1)
 		go func(idx int, p chefapi.FlatPackage) {
 			defer wg.Done()
 			sem <- struct{}{}
 			defer func() { <-sem }()
-			results[idx] = d.downloadOne(ctx, p)
+			results[idx] = d.downloadOne(ctx, p, dt, wt)
 			if d.progressFunc != nil {
 				d.progressFunc(idx, total, results[idx])
 			}
@@ -115,11 +192,29 @@ func (d *Downloader) Download(ctx context.Context, packages []chefapi.FlatPackag
 }
 
 // downloadOne handles downloading a single package.
-func (d *Downloader) downloadOne(ctx context.Context, pkg chefapi.FlatPackage) DownloadResult {
+func (d *Downloader) downloadOne(ctx context.Context, pkg chefapi.FlatPackage, dt *dedupTracker, wt *warningTracker) DownloadResult {
 	result := DownloadResult{Package: pkg}
 
-	// Build the target directory: {dest}/{product}/{version}/{platform}/{platform_version}/{arch}/
-	dir := filepath.Join(d.dest, d.product, pkg.Version, pkg.Platform, pkg.PlatformVersion, pkg.Architecture)
+	// Emit warnings for conditions that affect reproducibility
+	if pkg.SHA256 == "" {
+		wt.warn("sha256:"+pkg.Product, d.warningFunc,
+			fmt.Sprintf("Warning: %s has empty SHA256 — integrity cannot be verified", pkg.Product))
+	}
+	if pkg.Version == "latest" {
+		wt.warn("latest:"+pkg.Product, d.warningFunc,
+			fmt.Sprintf("Warning: %s version \"latest\" cannot be pinned — artifact may change on re-download", pkg.Product))
+	}
+
+	// SHA256 dedup: skip if identical SHA256 already downloaded in this batch
+	if d.dedup {
+		if original := dt.check(pkg.SHA256, pkg.Platform, pkg.PlatformVersion); original != "" {
+			result.DedupSkipped = true
+			return result
+		}
+	}
+
+	// Build the target directory: {dest}/{platform}/{platform_version}/{arch}/{product}/{version}/
+	dir := filepath.Join(d.dest, pkg.Platform, pkg.PlatformVersion, pkg.Architecture, pkg.Product, pkg.Version)
 
 	// Check skip-existing using a SHA256 marker file for the directory.
 	// We need the filename to check, but we may not know it until after

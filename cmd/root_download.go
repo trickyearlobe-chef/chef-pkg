@@ -121,7 +121,7 @@ func runDownloadPackages(cmd *cobra.Command, args []string) error {
 			return fmt.Errorf("fetching packages for version %s: %w", version, err)
 		}
 
-		packages := resp.Flatten()
+		packages := resp.Flatten(product)
 		packages = filterPackages(packages, platform, arch)
 
 		if len(packages) == 0 {
@@ -135,13 +135,18 @@ func runDownloadPackages(cmd *cobra.Command, args []string) error {
 		var mu sync.Mutex
 		var downloaded, skipped, failed int
 
-		d := downloader.New(dest, product,
+		d := downloader.New(dest,
 			downloader.WithConcurrency(concurrency),
 			downloader.WithSkipExisting(skipExisting),
 			downloader.WithProgressFunc(func(index, total int, r downloader.DownloadResult) {
 				mu.Lock()
 				defer mu.Unlock()
 				switch {
+				case r.DedupSkipped:
+					skipped++
+					fmt.Fprintf(os.Stderr, "[%d/%d] Skipped %s/%s/%s (dedup, identical SHA256)\n",
+						downloaded+skipped+failed, total,
+						r.Package.Platform, r.Package.PlatformVersion, r.Package.Architecture)
 				case r.Skipped:
 					skipped++
 					fmt.Fprintf(os.Stderr, "[%d/%d] Skipped %s/%s/%s (already exists, SHA256 match)\n",

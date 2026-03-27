@@ -103,7 +103,7 @@ func runListPackages(cmd *cobra.Command, args []string) error {
 			return fmt.Errorf("fetching packages for version %s: %w", version, err)
 		}
 
-		packages := resp.Flatten()
+		packages := resp.Flatten(product)
 		packages = filterPackages(packages, platform, arch)
 		allPackages = append(allPackages, packages...)
 	}

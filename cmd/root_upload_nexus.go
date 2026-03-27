@@ -170,7 +170,7 @@ func runUploadNexus(cmd *cobra.Command, args []string) error {
 				return fmt.Errorf("fetching packages for version %s: %w", version, err)
 			}
 
-			packages := resp.Flatten()
+			packages := resp.Flatten(product)
 			packages = filterPackages(packages, platform, arch)
 
 			if len(packages) == 0 {
@@ -183,13 +183,18 @@ func runUploadNexus(cmd *cobra.Command, args []string) error {
 			var mu sync.Mutex
 			var dlCount, skipCount, failCount int
 
-			d := downloader.New(source, product,
+			d := downloader.New(source,
 				downloader.WithConcurrency(concurrency),
 				downloader.WithSkipExisting(true),
 				downloader.WithProgressFunc(func(index, total int, r downloader.DownloadResult) {
 					mu.Lock()
 					defer mu.Unlock()
 					switch {
+					case r.DedupSkipped:
+						skipCount++
+						fmt.Fprintf(os.Stderr, "  [%d/%d] Skipped %s/%s/%s (dedup, identical SHA256)\n",
+							dlCount+skipCount+failCount, total,
+							r.Package.Platform, r.Package.PlatformVersion, r.Package.Architecture)
 					case r.Skipped:
 						skipCount++
 						fmt.Fprintf(os.Stderr, "  [%d/%d] Skipped %s/%s/%s (already exists)\n",
@@ -445,6 +450,7 @@ func scanDownloadDir(source, product, version, platformFilter, archFilter string
 					results = append(results, downloader.DownloadResult{
 						Path: filePath,
 						Package: chefapi.FlatPackage{
+							Product:         product,
 							Platform:        platformName,
 							PlatformVersion: pvName,
 							Architecture:    archName,

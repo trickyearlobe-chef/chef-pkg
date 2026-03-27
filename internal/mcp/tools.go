@@ -146,7 +146,7 @@ func listPackagesHandler(client *chefapi.Client, defaultChannel string) func(ctx
 			return nil, ListPackagesOutput{}, fmt.Errorf("list packages %s/%s@%s: %w", channel, product, version, err)
 		}
 
-		flat := pkgResp.Flatten()
+		flat := pkgResp.Flatten(product)
 
 		// Apply optional filters
 		platformFilter := strings.ToLower(input.Platform)

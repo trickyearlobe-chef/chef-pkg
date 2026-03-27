@@ -1,56 +1,66 @@
-# Plan: Flatten Command Structure (Option A)
+# Plan: MCP Server and IDE Install
 
 ## Goal
 
-Eliminate the stuttering `packages` subcommand from `list`, `download`, and `clean`.
-The bare verb becomes the leaf command for package operations.
+Add an MCP server mode to chef-pkg and `--install`/`--uninstall` flags for
+IDE registration. Build incrementally: raw_get tool first, explore the API,
+then decide what other tools to add.
 
-## Changes
+## Specs to read
 
-### Command mapping
+- `specs/mcp.md` — server entry point, tools, types, error handling
+- `specs/ide-install.md` — config paths, JSONC handling, install/uninstall logic
+- `specs/chefapi.md` — existing API client we're wrapping
 
-| Before                      | After                                  |
-|-----------------------------|----------------------------------------|
-| `chef-pkg list packages`    | `chef-pkg list` (default, with flags)  |
-| `chef-pkg list products`    | `chef-pkg list products` (unchanged)   |
-| `chef-pkg list versions`    | `chef-pkg list versions` (unchanged)   |
-| `chef-pkg download packages`| `chef-pkg download` (leaf command)     |
-| `chef-pkg clean packages`   | `chef-pkg clean` (leaf command)        |
-| `chef-pkg upload nexus`     | `chef-pkg upload nexus` (unchanged)    |
-| `chef-pkg upload artifactory`| `chef-pkg upload artifactory` (unchanged) |
-| `chef-pkg configure`        | `chef-pkg configure` (unchanged)       |
-| `chef-pkg raw get`          | `chef-pkg raw get` (unchanged)         |
-| `chef-pkg clean nexus`      | `chef-pkg clean nexus` (unchanged)     |
+## Completed steps
 
-### Steps
+1. ~~Flatten command structure (list/download/clean packages → bare verbs)~~
+2. ~~Update CLAUDE.md with MCP and Go best practices~~
+3. ~~Split monolith spec into per-concern files~~
+4. ~~Write specs/mcp.md and specs/ide-install.md~~
 
-1. **`cmd/root_list.go`** — Move `RunE` from `root_list_packages.go` into `listCmd` directly. The `list` command becomes a leaf that lists packages by default when called with no subcommand. Keep `products` and `versions` as subcommands.
+## Remaining steps
 
-2. **`cmd/root_list_packages.go`** — Delete this file. Its flags and `RunE` move into `root_list.go`.
+### Phase 1 — MCP server with raw_get
 
-3. **`cmd/root_download.go`** — Merge `root_download_packages.go` into this file. `downloadCmd` becomes a leaf command with `RunE`, flags, and examples.
+5. Add MCP Go SDK dependency (`github.com/modelcontextprotocol/go-sdk`)
+6. Create `internal/mcp/types.go` — input/output structs for raw_get
+7. Create `internal/mcp/tools.go` — raw_get handler
+8. Write tests for raw_get handler (`internal/mcp/tools_test.go`)
+9. Create `internal/mcp/server.go` — NewServer(), tool registration
+10. Write in-memory transport integration test (`internal/mcp/server_test.go`)
+11. Create `cmd/root_serve.go` — `chef-pkg serve` command
+12. Manual test: run `chef-pkg serve` with a client, call raw_get
 
-4. **`cmd/root_download_packages.go`** — Delete this file.
+### Phase 2 — Explore API and add tools
 
-5. **`cmd/root_clean.go`** — Merge `root_clean_packages.go` logic into `cleanCmd` as a `RunE`. Keep `clean nexus` as a subcommand.
+13. Use raw_get to explore edge cases across products
+14. Decide which additional tools to implement (list_products, list_versions, list_packages, or others)
+15. Implement decided tools with tests
+16. Update in-memory integration tests
 
-6. **`cmd/root_clean_packages.go`** — Delete this file.
+### Phase 3 — IDE install/uninstall
 
-7. **Update examples** in all affected commands — remove the `packages` noun from example strings.
+17. Create `internal/ideconfig/jsonc.go` — comment stripping, preamble extraction
+18. Write JSONC tests (`internal/ideconfig/jsonc_test.go`)
+19. Create `internal/ideconfig/ideconfig.go` — IDE definitions, Install(), Uninstall()
+20. Write install/uninstall tests (`internal/ideconfig/ideconfig_test.go`)
+21. Add `--install` and `--uninstall` flags to root command
+22. Manual test: install into local IDE configs, verify, uninstall, verify
 
-8. **Update specs** — `specs/commands.md` and `specs/overview.md` to reflect the new command tree.
+### Phase 4 — Polish
 
-9. **Update `plans/todo.md`** — reflect new command names.
+23. Update README.md with MCP server usage
+24. Update specs if implementation revealed gaps
+25. Final `go test -race ./...` and `go vet ./...`
 
-10. **Update tests** — any test that references the old subcommand names.
+## Acceptance criteria
 
-### Acceptance criteria
-
-- `chef-pkg list` lists packages (with `--product`, `--version`, etc.)
-- `chef-pkg list products` and `chef-pkg list versions` still work
-- `chef-pkg download` downloads packages directly
-- `chef-pkg clean` cleans packages directly
-- `chef-pkg clean nexus` still works
-- All existing tests pass after rename
-- `go vet ./...` clean
-- Specs match implementation
+- `chef-pkg serve` starts an MCP server over stdio
+- `raw_get` tool works and returns parsed JSON from any API endpoint
+- All decided tools return structured JSON output
+- `chef-pkg --install` registers in all detected IDE configs
+- `chef-pkg --uninstall` removes from all detected IDE configs
+- Idempotent: install twice is safe, uninstall twice is safe
+- All tests pass with `-race`
+- `go vet` clean

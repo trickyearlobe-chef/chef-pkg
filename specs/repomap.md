@@ -60,25 +60,23 @@ Unknown versions produce a warning and fall back to the raw version string.
 
 ## Repo Naming Convention
 
-Pattern: `{prefix}-{normalizedPlatform}{normalizedVersion}-{repoType}`
+Pattern: `{prefix}-{normalizedPlatform}-{normalizedVersion}-{repoType}`
 
 Architecture is **not** included in the repo name. Yum and apt repos natively support multiple architectures within a single repo. Raw repos use path-based separation for arch variants (see Artifact Path below).
-
-APT repos use a hyphen between platform and codename: `chef-ubuntu-jammy-apt`.
 
 Examples:
 
 ```
-chef-el9-yum
-chef-el8-yum
-chef-amzn2023-yum
-chef-sles15-yum
+chef-el-9-yum
+chef-el-8-yum
+chef-amzn-2023-yum
+chef-sles-15-yum
 chef-ubuntu-jammy-apt
 chef-ubuntu-noble-apt
 chef-debian-bookworm-apt
-chef-windows2019-raw
-chef-windows2019-nuget
-chef-macos13-raw
+chef-windows-2019-raw
+chef-windows-2019-nuget
+chef-macos-13-raw
 ```
 
 ## Artifact Path Within Repos

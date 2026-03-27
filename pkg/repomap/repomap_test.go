@@ -20,8 +20,10 @@ func TestNormalizePlatform(t *testing.T) {
 		{"fedora", "fedora"},
 		{"windows", "windows"},
 		{"mac_os_x", "macos"},
+		{"darwin", "macos"},
 		{"solaris2", "solaris"},
 		{"freebsd", "freebsd"},
+		{"linux-kernel2", "linux-kernel2"},
 		{"aix", "aix"},
 		// Unknown platforms pass through unchanged
 		{"gentoo", "gentoo"},
@@ -40,6 +42,12 @@ func TestNormalizePlatformVersion(t *testing.T) {
 		version  string
 		want     string
 	}{
+		// "pv" normalizes to "generic" for all platforms (before codename lookups)
+		{"linux", "pv", "generic"},
+		{"darwin", "pv", "generic"},
+		{"windows", "pv", "generic"},
+		{"ubuntu", "pv", "generic"},
+		{"el", "pv", "generic"},
 		// Ubuntu codenames
 		{"ubuntu", "18.04", "bionic"},
 		{"ubuntu", "20.04", "focal"},
@@ -203,40 +211,47 @@ func TestRepoName(t *testing.T) {
 		prefix          string
 		platform        string
 		platformVersion string
-		arch            string
 		repoType        string
 		want            string
 	}{
-		{"chef", "el", "9", "x86_64", "yum", "chef-el9-x86_64-yum"},
-		{"chef", "el", "8", "aarch64", "yum", "chef-el8-aarch64-yum"},
-		{"chef", "amazon", "2023", "x86_64", "yum", "chef-amzn2023-x86_64-yum"},
-		{"chef", "amazon", "2", "aarch64", "yum", "chef-amzn2-aarch64-yum"},
-		{"chef", "sles", "15", "x86_64", "yum", "chef-sles15-x86_64-yum"},
-		{"chef", "ubuntu", "22.04", "x86_64", "apt", "chef-ubuntu-jammy-amd64-apt"},
-		{"chef", "ubuntu", "24.04", "aarch64", "apt", "chef-ubuntu-noble-arm64-apt"},
-		{"chef", "debian", "12", "x86_64", "apt", "chef-debian-bookworm-amd64-apt"},
-		{"chef", "debian", "11", "x86_64", "apt", "chef-debian-bullseye-amd64-apt"},
-		{"chef", "windows", "2019", "x86_64", "raw", "chef-windows2019-x86_64-raw"},
-		{"chef", "mac_os_x", "12", "x86_64", "raw", "chef-macos12-x86_64-raw"},
-		{"chef", "solaris2", "5.11", "sparc", "raw", "chef-solaris5.11-sparc-raw"},
-		{"chef", "aix", "7.3", "powerpc", "raw", "chef-aix7.3-powerpc-raw"},
-		{"chef", "freebsd", "12", "x86_64", "raw", "chef-freebsd12-x86_64-raw"},
+		// Arch is no longer in repo name — repos hold all arches
+		// All repos use hyphen separator between platform and version
+		{"chef", "el", "9", "yum", "chef-el-9-yum"},
+		{"chef", "el", "8", "yum", "chef-el-8-yum"},
+		{"chef", "amazon", "2023", "yum", "chef-amzn-2023-yum"},
+		{"chef", "amazon", "2", "yum", "chef-amzn-2-yum"},
+		{"chef", "sles", "15", "yum", "chef-sles-15-yum"},
+		// APT repos use hyphen separator for readability
+		{"chef", "ubuntu", "22.04", "apt", "chef-ubuntu-jammy-apt"},
+		{"chef", "ubuntu", "24.04", "apt", "chef-ubuntu-noble-apt"},
+		{"chef", "debian", "12", "apt", "chef-debian-bookworm-apt"},
+		{"chef", "debian", "11", "apt", "chef-debian-bullseye-apt"},
+		// Raw repos
+		{"chef", "windows", "2019", "raw", "chef-windows-2019-raw"},
+		{"chef", "mac_os_x", "12", "raw", "chef-macos-12-raw"},
+		{"chef", "darwin", "pv", "raw", "chef-macos-generic-raw"},
+		{"chef", "solaris2", "5.11", "raw", "chef-solaris-5.11-raw"},
+		{"chef", "aix", "7.3", "raw", "chef-aix-7.3-raw"},
+		{"chef", "freebsd", "12", "raw", "chef-freebsd-12-raw"},
+		// Generic products (platform_version == "pv" normalized to "generic")
+		{"chef", "linux", "pv", "raw", "chef-linux-generic-raw"},
+		{"chef", "linux-kernel2", "pv", "raw", "chef-linux-kernel2-generic-raw"},
 		// Custom prefix
-		{"myorg", "el", "9", "x86_64", "yum", "myorg-el9-x86_64-yum"},
+		{"myorg", "el", "9", "yum", "myorg-el-9-yum"},
 		// chef-ice style: arch is package format, platformVersion is CPU arch
-		{"chef-ice", "linux", "x86_64", "rpm", "yum", "chef-ice-linux-x86_64-yum"},
-		{"chef-ice", "linux", "x86_64", "deb", "apt", "chef-ice-linux-x86_64-apt"},
-		{"chef-ice", "linux", "x86_64", "tar", "raw", "chef-ice-linux-x86_64-raw"},
-		{"chef-ice", "linux", "aarch64", "rpm", "yum", "chef-ice-linux-aarch64-yum"},
-		{"chef-ice", "linux", "aarch64", "deb", "apt", "chef-ice-linux-aarch64-apt"},
-		{"chef-ice", "windows", "x86_64", "msi", "raw", "chef-ice-windows-x86_64-raw"},
-		{"chef-ice", "windows", "x86_64", "tar", "raw", "chef-ice-windows-x86_64-raw"},
+		// These still use the package-format branch which keeps platformVersion in name
+		{"chef-ice", "linux", "x86_64", "yum", "chef-ice-linux-x86_64-yum"},
+		{"chef-ice", "linux", "x86_64", "apt", "chef-ice-linux-x86_64-apt"},
+		{"chef-ice", "linux", "x86_64", "raw", "chef-ice-linux-x86_64-raw"},
+		{"chef-ice", "windows", "x86_64", "raw", "chef-ice-windows-x86_64-raw"},
 	}
 	for _, tt := range tests {
-		got := RepoName(tt.prefix, tt.platform, tt.platformVersion, tt.arch, tt.repoType)
-		if got != tt.want {
-			t.Errorf("RepoName(%q, %q, %q, %q, %q) = %q, want %q",
-				tt.prefix, tt.platform, tt.platformVersion, tt.arch, tt.repoType, got, tt.want)
-		}
+		t.Run(tt.want, func(t *testing.T) {
+			got := RepoName(tt.prefix, tt.platform, tt.platformVersion, tt.repoType)
+			if got != tt.want {
+				t.Errorf("RepoName(%q, %q, %q, %q) = %q, want %q",
+					tt.prefix, tt.platform, tt.platformVersion, tt.repoType, got, tt.want)
+			}
+		})
 	}
 }

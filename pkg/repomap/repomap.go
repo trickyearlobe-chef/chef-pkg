@@ -9,6 +9,7 @@ import (
 var platformMap = map[string]string{
 	"amazon":   "amzn",
 	"mac_os_x": "macos",
+	"darwin":   "macos",
 	"solaris2": "solaris",
 }
 
@@ -42,11 +43,16 @@ var debianCodenames = map[string]string{
 }
 
 // NormalizePlatformVersion converts a Chef API platform version to the form
-// used by the platform's native package manager. For Ubuntu and Debian, this
-// means converting numeric versions to codenames. For all other platforms,
-// the version is returned as-is. Unknown versions produce a warning and fall
-// back to the raw version string.
+// used by the platform's native package manager. The literal string "pv"
+// (returned by generic products like chef-360 and automate) is normalized to
+// "generic" regardless of platform. For Ubuntu and Debian, numeric versions
+// are converted to codenames. For all other platforms, the version is returned
+// as-is. Unknown versions produce a warning and fall back to the raw version
+// string.
 func NormalizePlatformVersion(platform, version string) string {
+	if version == "pv" {
+		return "generic"
+	}
 	switch platform {
 	case "ubuntu":
 		if codename, ok := ubuntuCodenames[version]; ok {
@@ -148,35 +154,17 @@ func RepoTypeForPackage(platform, arch string) string {
 }
 
 // RepoName builds the artifact repository name from its components.
-// Pattern: {prefix}-{normalizedPlatform}-{normalizedVersion}-{normalizedArch}-{repoType}
+// Pattern: {prefix}-{normalizedPlatform}{normalizedVersion}-{repoType}
 //
-// For standard products the platform version is a distro version (e.g. "9",
-// "22.04") and the architecture is a CPU arch (e.g. "x86_64"). For products
-// like chef-ice the platform version holds the CPU architecture and the
-// architecture field holds the package format — RepoName handles both cases
-// correctly by detecting package-format architectures.
+// Architecture is NOT included in the repo name because yum and apt repos
+// natively support multiple architectures, and raw repos use path-based
+// separation. All arches and all products coexist in one repo per
+// platform+platformVersion.
 //
 // Platform and version normalization are applied automatically.
-// Architecture is normalized based on the repo type.
-func RepoName(prefix, platform, platformVersion, arch, repoType string) string {
+func RepoName(prefix, platform, platformVersion, repoType string) string {
 	normPlatform := NormalizePlatform(platform)
-
-	// When the Architecture field is a package format (chef-ice style), the
-	// PlatformVersion actually contains the CPU architecture and there is no
-	// meaningful distro version. Build the name as:
-	//   {prefix}-{platform}-{platformVersion}-{repoType}
-	// where platformVersion is really the CPU arch (e.g. x86_64).
-	if IsPackageFormat(arch) {
-		return fmt.Sprintf("%s-%s-%s-%s", prefix, normPlatform, platformVersion, repoType)
-	}
-
 	normVersion := NormalizePlatformVersion(platform, platformVersion)
-	normArch := NormalizeArch(repoType, arch)
 
-	// For apt, use a hyphen between platform and codename for readability
-	// e.g. chef-ubuntu-jammy-amd64-apt rather than chef-ubuntujammy-amd64-apt
-	if repoType == "apt" {
-		return fmt.Sprintf("%s-%s-%s-%s-%s", prefix, normPlatform, normVersion, normArch, repoType)
-	}
-	return fmt.Sprintf("%s-%s%s-%s-%s", prefix, normPlatform, normVersion, normArch, repoType)
+	return fmt.Sprintf("%s-%s-%s-%s", prefix, normPlatform, normVersion, repoType)
 }

@@ -279,7 +279,7 @@ func runUploadNexus(cmd *cobra.Command, args []string) error {
 			rt = "raw"
 		}
 
-		repoName := repomap.RepoName(repoPrefix, pkg.Platform, pkg.PlatformVersion, pkg.Architecture, rt)
+		repoName := repomap.RepoName(repoPrefix, pkg.Platform, pkg.PlatformVersion, rt)
 
 		// Ensure repository exists
 		if !repoChecked[repoName] {

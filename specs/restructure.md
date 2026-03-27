@@ -98,17 +98,17 @@ One repo per platform+platform_version. All products and all arches coexist
 in the same repo:
 
 ```
-chef-el8-yum
-chef-el9-yum
-chef-amzn2-yum
-chef-amzn2023-yum
-chef-sles15-yum
+chef-el-8-yum
+chef-el-9-yum
+chef-amzn-2-yum
+chef-amzn-2023-yum
+chef-sles-15-yum
 chef-ubuntu-jammy-apt
 chef-ubuntu-noble-apt
 chef-debian-bookworm-apt
-chef-windows10-raw
-chef-windows2022-raw
-chef-macos13-raw
+chef-windows-10-raw
+chef-windows-2022-raw
+chef-macos-13-raw
 chef-linux-generic-raw
 ```
 
@@ -123,14 +123,12 @@ This works because:
 
 ### Repo naming
 
-Pattern: `{prefix}-{normalizedPlatform}{normalizedPlatformVersion}-{repoType}`
+Pattern: `{prefix}-{normalizedPlatform}-{normalizedPlatformVersion}-{repoType}`
 
 - `prefix` defaults to `"chef"`, configurable via `--repo-prefix`.
 - Platform and platform_version are normalized per the repomap rules.
 - Repo type derived from platform (yum, apt, raw).
 - Arch is NOT in the repo name.
-- APT repos use a hyphen separator for readability:
-  `chef-ubuntu-jammy-apt` not `chef-ubuntujammy-apt`.
 
 ### Remote path within repo
 
@@ -140,7 +138,7 @@ Files are organized inside the repo so they are browsable:
 {product}/{version}/{arch}/{filename}
 ```
 
-Examples inside `chef-el9-yum`:
+Examples inside `chef-el-9-yum`:
 
 ```
 chef/18.10.17/x86_64/chef-18.10.17-1.el9.x86_64.rpm
@@ -178,8 +176,8 @@ Upload walks the on-disk tree, so skipped platform_versions simply have no
 files and produce no upload. The artifact repo for the skipped platform_version
 will not be created (unless the user has other products that do differ).
 
-This means a customer pointed at `chef-windows10-raw` and a customer pointed
-at `chef-windows2022-raw` might see different product availability if some
+This means a customer pointed at `chef-windows-10-raw` and a customer pointed
+at `chef-windows-2022-raw` might see different product availability if some
 products deduped and others didn't. This is acceptable because the identical
 binary works on both. If a user wants all platform_version repos populated
 identically, they can use `--no-dedup` (see CLI changes below).
@@ -300,10 +298,10 @@ Output:
 
 ```
 Would create 2 repo(s) and upload 6 file(s):
-  CREATE chef-el8-yum
+  CREATE chef-el-8-yum
     chef/18.10.17/x86_64/chef-18.10.17-1.el8.x86_64.rpm
     inspec/6.8.24/x86_64/inspec-6.8.24-1.el8.x86_64.rpm
-  CREATE chef-el9-yum
+  CREATE chef-el-9-yum
     chef/18.10.17/x86_64/chef-18.10.17-1.el9.x86_64.rpm
     chef/18.10.17/aarch64/chef-18.10.17-1.el9.aarch64.rpm
     inspec/6.8.24/x86_64/inspec-6.8.24-1.el9.x86_64.rpm
@@ -337,7 +335,7 @@ new directory hierarchy:
 
 - Add `"darwin"` to `platformMap`.
 - Add `"pv" → "generic"` rule to `NormalizePlatformVersion`.
-- Change `RepoName` to drop arch from the name: `{prefix}-{platform}{version}-{type}`.
+- Change `RepoName` to drop arch from the name: `{prefix}-{platform}-{version}-{type}`.
 - Update all tests.
 
 ### `pkg/downloader/`
@@ -420,7 +418,7 @@ chef-pkg upload nexus --platform el --platform-version 9 --create-repos --fetch=
 
 Result:
 - On disk: `packages/el/9/{x86_64,aarch64}/{chef,inspec,chef-server,...}/{version}/`
-- In Nexus: single repo `chef-el9-yum` containing all products and arches.
+- In Nexus: single repo `chef-el-9-yum` containing all products and arches.
 
 ### Example 2: Mirror just chef for all platforms to Artifactory
 
@@ -431,7 +429,7 @@ chef-pkg upload artifactory --create-repos
 
 Result:
 - On disk: `packages/{el,ubuntu,debian,windows,...}/{version}/{arch}/chef/{version}/`
-- In Artifactory: one repo per platform_version (`chef-el8-yum`, `chef-el9-yum`,
+- In Artifactory: one repo per platform_version (`chef-el-8-yum`, `chef-el-9-yum`,
   `chef-ubuntu-jammy-apt`, etc.), each containing only chef.
 - Windows dedup: only one or two Windows platform_versions actually have files
   (the rest were skipped as identical SHA256).

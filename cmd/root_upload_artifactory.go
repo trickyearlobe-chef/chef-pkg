@@ -272,7 +272,7 @@ func runUploadArtifactory(cmd *cobra.Command, args []string) error {
 	for i, r := range uploadable {
 		pkg := r.Package
 		rt := repomap.RepoTypeForPackage(pkg.Platform, pkg.Architecture)
-		repoName := repomap.RepoName(repoPrefix, pkg.Platform, pkg.PlatformVersion, pkg.Architecture, rt)
+		repoName := repomap.RepoName(repoPrefix, pkg.Platform, pkg.PlatformVersion, rt)
 
 		// Ensure repository exists
 		if !repoChecked[repoName] {

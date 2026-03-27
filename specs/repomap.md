@@ -15,8 +15,14 @@
 | `fedora` | `fedora` |
 | `windows` | `windows` |
 | `mac_os_x` | `macos` |
+| `darwin` | `macos` |
 
-## Platform Version Normalization (apt codenames)
+## Platform Version Normalization
+
+Applied in order:
+
+1. If version is `"pv"` → `"generic"` (all platforms).
+2. For apt platforms, map version to codename:
 
 | Distro | Version | Codename |
 |---|---|---|
@@ -26,7 +32,8 @@
 | Debian | `10` | `buster` |
 | Debian | `11` | `bullseye` |
 | Debian | `12` | `bookworm` |
-| All others | `*` | used as-is |
+
+3. All others: used as-is.
 
 Unknown versions produce a warning and fall back to the raw version string.
 
@@ -53,33 +60,41 @@ Unknown versions produce a warning and fall back to the raw version string.
 
 ## Repo Naming Convention
 
-Pattern: `{prefix}-{normalizedPlatform}{normalizedVersion}-{normalizedArch}-{repoType}`
+Pattern: `{prefix}-{normalizedPlatform}{normalizedVersion}-{repoType}`
 
-The repo type suffix is always included.
+Architecture is **not** included in the repo name. Yum and apt repos natively support multiple architectures within a single repo. Raw repos use path-based separation for arch variants (see Artifact Path below).
+
+APT repos use a hyphen between platform and codename: `chef-ubuntu-jammy-apt`.
 
 Examples:
 
 ```
-chef-el9-x86_64-yum
-chef-el8-aarch64-yum
-chef-amzn2023-x86_64-yum
-chef-sles15-x86_64-yum
-chef-ubuntu-jammy-amd64-apt
-chef-ubuntu-noble-amd64-apt
-chef-debian-bookworm-amd64-apt
-chef-windows2019-x86_64-raw
-chef-windows2019-x86_64-nuget
-chef-macos13-x86_64-raw
+chef-el9-yum
+chef-el8-yum
+chef-amzn2023-yum
+chef-sles15-yum
+chef-ubuntu-jammy-apt
+chef-ubuntu-noble-apt
+chef-debian-bookworm-apt
+chef-windows2019-raw
+chef-windows2019-nuget
+chef-macos13-raw
 ```
 
 ## Artifact Path Within Repos
 
-Multiple products and versions coexist in the same repo:
+Multiple products, versions, and architectures coexist in the same repo. Path structure inside the repo:
 
 ```
-chef-ice/19.1.158/chef-ice-19.1.158-1.el9.x86_64.rpm
-chef/18.4.2/chef-18.4.2-1.el9.x86_64.rpm
-inspec/6.8.1/inspec-6.8.1-1.el9.x86_64.rpm
+{product}/{version}/{arch}/{filename}
+```
+
+Examples:
+
+```
+chef-ice/19.1.158/x86_64/chef-ice-19.1.158-1.el9.x86_64.rpm
+chef/18.4.2/aarch64/chef-18.4.2-1.el9.aarch64.rpm
+inspec/6.8.1/x86_64/inspec-6.8.1-1.el9.x86_64.rpm
 ```
 
 ## Functions
@@ -88,4 +103,4 @@ inspec/6.8.1/inspec-6.8.1-1.el9.x86_64.rpm
 - `NormalizePlatformVersion(platform, version) → string`
 - `NormalizeArch(repoType, chefArch) → string`
 - `RepoType(platform, fileExtension) → string`
-- `RepoName(prefix, platform, platformVersion, arch, repoType) → string`
+- `RepoName(prefix, platform, platformVersion, repoType) → string`

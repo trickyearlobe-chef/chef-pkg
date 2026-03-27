@@ -87,6 +87,7 @@ List available packages from the Chef API. This is the default behavior of
 | `--product` | `-p` | `chef` | Product name |
 | `--version` | `-v` | `latest` | Product version (`semver`, `latest`, or `all`; major-only like `18` is allowed) |
 | `--platform` | | | Filter by platform (substring, case-insensitive) |
+| `--platform-version` | | | Filter by platform version (substring, case-insensitive) |
 | `--arch` | | | Filter by architecture |
 | `--output` | `-o` | `table` | Output format: `table` or `json` |
 
@@ -101,15 +102,54 @@ can embed `license_id`.
 Download packages to local disk. This is the default behavior of `download`
 when called without a subcommand.
 
+When `--product` is omitted, downloads the latest version of all current
+products for the specified platform/arch filters.
+
 | Flag | Short | Config key | Default | Description |
 |---|---|---|---|---|
-| `--product` | `-p` | | `chef` | Product name |
+| `--product` | `-p` | | *(empty — all products)* | Product name; when omitted, downloads all products |
 | `--version` | `-v` | | `latest` | Product version (`semver`, `latest`, or `all`; major-only like `18` is allowed) |
-| `--platform` | | | | Filter by platform |
+| `--platform` | | | | Filter by platform (substring, case-insensitive) |
+| `--platform-version` | | | | Filter by platform version (substring, case-insensitive) |
 | `--arch` | | | | Filter by architecture |
 | `--dest` | `-d` | `download.dest` | `./packages` | Destination root directory |
 | `--skip-existing` | | | `true` | Skip files with matching SHA256 |
 | `--concurrency` | `-c` | `download.concurrency` | `4` | Max parallel downloads |
+| `--no-dedup` | | | `false` | Download all platform_versions even when SHA256 matches |
+| `--dry-run` | | | `false` | Show what would be downloaded without actually downloading |
+
+### Behavior when `--product` is omitted
+
+- `--version` defaults to `latest`, resolved independently per product.
+- `--version all` → error: `--version all requires --product`.
+- `--version {semver}` → error: `--version {v} requires --product (version is product-specific)`.
+- Generic products (those with platform_version `"pv"`) are excluded by
+  default; they require an explicit `--product` to download.
+
+### SHA256 deduplication
+
+By default, when the same SHA256 appears across multiple platform_versions for
+a given platform/arch, only one copy is downloaded. Use `--no-dedup` to
+download every platform_version variant regardless.
+
+Examples:
+
+```
+# Download all products for RHEL 9
+chef-pkg download --platform el --platform-version 9
+
+# Download a single product for all RHEL versions
+chef-pkg download --product chef --platform el
+
+# Download Chef Infra Client latest for Ubuntu
+chef-pkg download --product chef --platform ubuntu
+
+# Dry run — see what would be downloaded without downloading
+chef-pkg download --platform el --platform-version 9 --dry-run
+
+# Download all versions of a specific product
+chef-pkg download --product chef --version all --platform el
+```
 
 ## `chef-pkg upload nexus`
 
@@ -121,6 +161,7 @@ Upload downloaded packages to Sonatype Nexus.
 | `--product` | `-p` | | `chef` | Product name |
 | `--version` | `-v` | | `latest` | Product version (`semver`, `latest`, or `all`; major-only like `18` is allowed) |
 | `--platform` | | | | Filter by platform |
+| `--platform-version` | | | | Filter by platform version (substring, case-insensitive) |
 | `--arch` | | | | Filter by architecture |
 | `--nexus-url` | | `nexus.url` | | Nexus server URL |
 | `--nexus-username` | | `nexus.username` | | Nexus username |
@@ -128,6 +169,20 @@ Upload downloaded packages to Sonatype Nexus.
 | `--repo-prefix` | | | `chef` | Prefix for repo names |
 | `--create-repos` | | | `false` | Auto-create repos if they don't exist |
 | `--fetch` | | | `false` | Fetch from Chef API → download → upload (pipeline mode) |
+| `--dry-run` | | | `false` | Show what would be uploaded without actually uploading |
+
+Examples:
+
+```
+# Upload RHEL packages to Nexus with auto-created repos (dry run)
+chef-pkg upload nexus --platform el --create-repos --dry-run
+
+# Upload only RHEL 9 packages
+chef-pkg upload nexus --platform el --platform-version 9
+
+# Fetch and upload in one step
+chef-pkg upload nexus --product chef --platform el --fetch --create-repos
+```
 
 ## `chef-pkg upload artifactory`
 
@@ -139,6 +194,7 @@ Upload downloaded packages to JFrog Artifactory.
 | `--product` | `-p` | | `chef` | Product name |
 | `--version` | `-v` | | `latest` | Product version (`semver`, `latest`, or `all`; major-only like `18` is allowed) |
 | `--platform` | | | | Filter by platform |
+| `--platform-version` | | | | Filter by platform version (substring, case-insensitive) |
 | `--arch` | | | | Filter by architecture |
 | `--artifactory-url` | | `artifactory.url` | | Artifactory server URL |
 | `--artifactory-token` | | `artifactory.token` | | Artifactory API token (takes precedence) |
@@ -147,6 +203,24 @@ Upload downloaded packages to JFrog Artifactory.
 | `--repo-prefix` | | | `chef` | Prefix for repo names |
 | `--create-repos` | | | `false` | Auto-create repos if they don't exist |
 | `--fetch` | | | `false` | Fetch from Chef API → download → upload (pipeline mode) |
+| `--dry-run` | | | `false` | Show what would be uploaded without actually uploading |
+
+Examples:
+
+```
+# Upload Ubuntu packages to Artifactory (dry run)
+chef-pkg upload artifactory --platform ubuntu --dry-run
+
+# Upload only specific platform version
+chef-pkg upload artifactory --platform el --platform-version 9 --create-repos
+```
+
+## `chef-pkg clean`
+
+Remove downloaded packages from local disk.
+
+The clean command walks the platform-first directory hierarchy under the
+destination directory to find and remove packages.
 
 ## Raw API Explorer
 
